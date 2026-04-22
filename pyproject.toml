@@ -1,0 +1,4 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["dbt_transform", ".venv", "node_modules", "data"]
+pythonpath = ["."]
