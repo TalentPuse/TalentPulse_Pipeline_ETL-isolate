@@ -1,0 +1,29 @@
+# Crawling (HTML thô)
+requests==2.31.0
+beautifulsoup4==4.12.2
+
+# Crawling (Dynamic/JS)
+playwright==1.42.0
+
+# Transform & Warehouse Schema
+dbt-postgres==1.8.0
+sqlalchemy==2.0.28
+psycopg2-binary==2.9.9 ; sys_platform != 'win32'
+psycopg2-binary==2.9.9 ; sys_platform == 'win32'
+
+# Data Validation & Data Quality
+pandera==0.18.2
+pandas==2.2.1
+
+# Storage (S3/MinIO Integration)
+boto3==1.34.62
+
+# Orchestration
+prefect==2.16.5
+
+# Testing & Utilities
+pytest==8.1.1
+requests-mock==1.11.0
+python-dotenv==1.0.1
+tenacity==8.2.3
+freezegun==1.4.0

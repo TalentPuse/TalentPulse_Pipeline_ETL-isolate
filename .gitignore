@@ -1,0 +1,63 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# ===== Virtual env =====
+.venv/
+venv/
+env/
+
+# ===== IDE =====
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ===== Secrets =====
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ===== dbt =====
+dbt_transform/target/
+dbt_transform/dbt_packages/
+dbt_transform/logs/
+dbt_transform/.user.yml
+
+# ===== Project artifacts =====
+# Local crawl/parse logs (transient)
+*.log
+logs/
+
+# Local data dumps (raw lives in MinIO)
+data/
+
+# Screenshots / scratch images
+*.png
+*.jpg
+*.jpeg
+!docs/**/*.png
+
+# Prefect generated deployment YAML (regenerate via `prefect deploy`)
+*-deployment.yaml
+.prefectignore
+
+# Docker volumes (if mounted to host accidentally)
+pgdata/
+miniodata/
+metabase_plugins/
