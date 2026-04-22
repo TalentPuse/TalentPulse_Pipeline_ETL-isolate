@@ -28,6 +28,9 @@ models:
     gold:
       +materialized: table
       +schema: gold
+    features:
+      +materialized: table
+      +schema: feature
 
 seeds:
   talentpulse:

@@ -1,0 +1,32 @@
+version: 2
+
+models:
+  - name: job_features
+    description: "Entity-level features per job_id for ML consumption. Regenerated daily."
+    columns:
+      - name: source_job_id
+        description: "Entity key. One row per active job."
+        tests: [not_null, unique]
+      - name: snapshot_date
+        tests: [not_null]
+      - name: n_skills
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 50
+      - name: salary_vnd_monthly_avg
+        description: "Target variable for salary prediction model."
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 1000000
+              max_value: 5000000000
+              config:
+                where: "salary_vnd_monthly_avg is not null"
+      - name: is_senior
+        tests: [not_null]
+      - name: is_remote
+        tests: [not_null]
+      - name: has_python
+        tests: [not_null]
+      - name: has_sql
+        tests: [not_null]
