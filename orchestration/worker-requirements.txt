@@ -1,0 +1,12 @@
+# Minimal deps for the Prefect worker container.
+# Excludes heavyweight packages not needed at flow runtime:
+# - playwright (we use requests POST), dbt-postgres (separate task later),
+#   pandera/pandas (no validation in flow yet), pytest/freezegun (test only).
+# Pin versions to match repo requirements.txt where applicable.
+requests==2.31.0
+beautifulsoup4==4.12.2
+sqlalchemy==2.0.28
+psycopg2-binary==2.9.9
+boto3==1.34.62
+python-dotenv==1.0.1
+tenacity==8.2.3
