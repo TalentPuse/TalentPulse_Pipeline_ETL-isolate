@@ -1,0 +1,49 @@
+version: 2
+
+models:
+  - name: silver_job_detail
+    description: "Normalized job_detail with VND-monthly salary + canonical city/degree/size labels."
+    columns:
+      - name: source_job_id
+        tests: [not_null, unique]
+      - name: title
+        tests: [not_null]
+      - name: company_name
+        tests: [not_null]
+      - name: city_canonical
+        description: "Canonical city. NULL means city_raw_en didn't match city_map (drift detector)."
+        tests:
+          - not_null:
+              config:
+                where: "city_raw_en is not null"
+      - name: salary_vnd_monthly_avg
+        description: "Avg of min/max in VND monthly. Sanity bounds: 1M to 5B/month."
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 1000000
+              max_value: 5000000000
+              config:
+                where: "salary_vnd_monthly_avg is not null"
+
+  - name: silver_skill_long
+    description: "One row per (job, skill). VNW skill_id retained, canonical name TBD."
+    columns:
+      - name: skill_name_norm
+        tests: [not_null]
+      - name: skill_weight
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 100
+
+  - name: silver_company_dim
+    description: "Company dimension, deduped by company_id with aggregated job counts."
+    columns:
+      - name: company_id
+        tests: [not_null, unique]
+      - name: company_name
+        tests: [not_null]
+      - name: n_active_jobs
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 1

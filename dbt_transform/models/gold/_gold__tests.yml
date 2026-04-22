@@ -1,0 +1,49 @@
+version: 2
+
+models:
+  - name: fct_jobs_daily
+    description: "Fact: job × snapshot_date (incremental)."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [source, source_job_id, snapshot_date]
+    columns:
+      - name: source_job_id
+        tests: [not_null]
+      - name: snapshot_date
+        tests: [not_null]
+
+  - name: mart_skill_demand
+    description: "Skill demand snapshot. Pct of jobs mentioning each skill + avg VND salary."
+    columns:
+      - name: skill
+        tests: [not_null, unique]
+      - name: pct_of_jobs
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 100
+      - name: n_jobs
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 2
+
+  - name: mart_company_hiring
+    description: "Company hiring aggregate."
+    columns:
+      - name: company_id
+        tests: [not_null, unique]
+      - name: n_jobs
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 1
+
+  - name: mart_salary_by_level
+    description: "Salary percentiles by (job_level × city)."
+    columns:
+      - name: avg_salary_vnd
+        tests: [not_null]
+      - name: p50_vnd
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 1000000
+              max_value: 5000000000

@@ -1,0 +1,12 @@
+company_size_id,size_label,size_bucket
+0,Unknown,Unknown
+1,1-9,Micro
+2,10-24,Micro
+3,25-99,Small
+4,100-499,Medium
+5,500-999,Medium
+6,1000-4999,Large
+7,5000-9999,Large
+8,10000-19999,Enterprise
+9,20000-49999,Enterprise
+10,50000+,Enterprise

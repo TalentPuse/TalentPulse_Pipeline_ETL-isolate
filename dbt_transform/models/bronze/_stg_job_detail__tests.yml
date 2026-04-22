@@ -1,0 +1,32 @@
+version: 2
+
+models:
+  - name: stg_job_detail
+    description: "Active VietnamWorks postings, 1:1 with raw.job_detail."
+    columns:
+      - name: source_job_id
+        description: "Upstream id — unique per active posting"
+        tests:
+          - not_null
+          - unique
+      - name: source
+        tests: [not_null]
+      - name: title
+        description: "Job title — always populated (loader validates MISSING_TITLE)"
+        tests: [not_null]
+      - name: company_name
+        description: "Company name — loader validates MISSING_COMPANY"
+        tests: [not_null]
+      - name: parsed_at
+        tests: [not_null]
+      - name: parser_version
+        tests:
+          - accepted_values:
+              values: ['v1', 'v2']
+      - name: salary_currency
+        description: "Currency code when salary visible. VND majority; USD for MNC; rare JPY for JP companies."
+        tests:
+          - accepted_values:
+              values: ['VND', 'USD', 'JPY']
+              config:
+                where: "salary_currency is not null and salary_currency != ''"

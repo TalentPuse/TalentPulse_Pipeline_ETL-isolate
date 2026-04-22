@@ -1,0 +1,31 @@
+version: 2
+
+sources:
+  - name: raw
+    description: "Raw ingested data from crawler/parser/loader pipeline"
+    schema: raw
+    tables:
+      - name: job_detail
+        description: "Structured VietnamWorks job postings. One row per (source, source_job_id). UPSERT by loader."
+        columns:
+          - name: source
+            description: "Job board, e.g. 'vietnamworks'"
+          - name: source_job_id
+            description: "Upstream job id"
+          - name: parsed_at
+            description: "When parser converted HTML → JSON"
+          - name: parser_version
+            description: "Parser version (v1, v2, ...)"
+
+      - name: crawl_log
+        description: "Crawler queue + audit log"
+        columns:
+          - name: job_id
+          - name: status
+          - name: crawled_at
+
+      - name: job_detail_rejects
+        description: "Quarantine for rows that failed loader validation (OUT_OF_FOCUS, BAD_SALARY_RANGE, ...)"
+        columns:
+          - name: reject_reason
+          - name: rejected_at
