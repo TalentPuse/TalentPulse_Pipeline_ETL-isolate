@@ -160,3 +160,13 @@ Caveat: cần add `dbt-postgres==1.8.0` vào `orchestration/worker-requirements.
 - **Snapshot history (SCD2)** — track salary/views thay đổi
 - **Feature Store (Feast)** — gold tables là source
 - **Cross-source dedup** — khi add TopCV/Glints
+
+---
+
+## Related docs
+
+- [`lineage.md`](lineage.md) — xem DAG từ raw → bronze → silver → gold → features
+- [`feature_store.md`](feature_store.md) — `feature.job_features` table + Feast migration path
+- [`data_audit.md`](data_audit.md) — validation rules + rejects quarantine
+- [`orchestration_setup.md`](orchestration_setup.md) — Prefect flow setup
+- [`metabase_setup.md`](metabase_setup.md) — BI dashboard bindings
