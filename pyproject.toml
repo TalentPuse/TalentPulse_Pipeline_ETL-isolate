@@ -2,3 +2,4 @@
 testpaths = ["tests"]
 norecursedirs = ["dbt_transform", ".venv", "node_modules", "data"]
 pythonpath = ["."]
+asyncio_mode = "auto"
