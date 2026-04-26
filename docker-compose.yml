@@ -1,48 +1,62 @@
-version: "3.8"
-
 services:
-  # Database cho Warehouse & Cấu hình (dbt/Prefect state)
   postgres:
     image: postgres:15
     container_name: talentpulse-postgres
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: warehouse
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${DB_NAME:-warehouse}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./docker/init-db:/docker-entrypoint-initdb.d:ro
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1G
 
-  # Local S3 Storage cho Raw Data HTML/JSON
   minio:
     image: minio/minio
     container_name: talentpulse-minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
     ports:
-      - "9000:9000"   # API Port
-      - "9001:9001"   # Web UI Console Port
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     volumes:
       - miniodata:/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
-  # BI / governance dashboard (Metabase)
   metabase:
     image: metabase/metabase:v0.50.20
     container_name: talentpulse-metabase
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
-      # Metabase stores its own app data in Postgres (separate DB)
       MB_DB_TYPE: postgres
       MB_DB_DBNAME: metabase_app
       MB_DB_PORT: 5432
-      MB_DB_USER: admin
-      MB_DB_PASS: password
+      MB_DB_USER: ${POSTGRES_USER:-admin}
+      MB_DB_PASS: ${POSTGRES_PASSWORD:-password}
       MB_DB_HOST: postgres
       JAVA_TIMEZONE: Asia/Ho_Chi_Minh
     ports:
@@ -50,48 +64,72 @@ services:
     volumes:
       - metabase_plugins:/plugins
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
 
-  # Prefect server (UI + API for orchestration)
   prefect-server:
     image: prefecthq/prefect:2.16.5-python3.10
     container_name: talentpulse-prefect-server
     command: prefect server start --host 0.0.0.0 --port 4200
     environment:
-      PREFECT_UI_API_URL: http://localhost:4200/api
-      PREFECT_SERVER_DATABASE_CONNECTION_URL: postgresql+asyncpg://admin:password@postgres:5432/prefect
+      PREFECT_UI_API_URL: ${PREFECT_UI_API_URL:-http://localhost:4200/api}
+      PREFECT_SERVER_DATABASE_CONNECTION_URL: "postgresql+asyncpg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-password}@postgres:5432/prefect"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     ports:
       - "4200:4200"
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 768M
 
-  # Prefect worker (executes flows; pulls from default-agent-pool)
   prefect-worker:
-    build:
-      context: .
-      dockerfile: orchestration/Dockerfile.worker
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-talentpulse/pipeline_data}-worker:${IMAGE_TAG:-develop}
     container_name: talentpulse-prefect-worker
     command: prefect worker start --pool default-agent-pool --type process
     environment:
       PREFECT_API_URL: http://prefect-server:4200/api
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USER: admin
-      DB_PASSWORD: password
-      DB_NAME: warehouse
+      DB_USER: ${POSTGRES_USER:-admin}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      DB_NAME: ${DB_NAME:-warehouse}
       S3_ENDPOINT_URL: http://minio:9000
-      S3_ACCESS_KEY: minioadmin
-      S3_SECRET_KEY: minioadmin
-      S3_BUCKET_NAME: talentpulse-raw
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-talentpulse-raw}
       CRAWLER_CONTACT_EMAIL: ${CRAWLER_CONTACT_EMAIL:-contact@example.com}
     depends_on:
-      - prefect-server
-      - postgres
-      - minio
-    volumes:
-      - ./src:/app/src:ro
-      - ./orchestration:/app/orchestration:ro
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      prefect-server:
+        condition: service_started
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  telegram-bot:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-talentpulse/pipeline_data}-telegram:${IMAGE_TAG:-develop}
+    container_name: talentpulse-telegram-bot
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-password}@postgres:5432/${DB_NAME:-warehouse}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
 volumes:
   pgdata:
