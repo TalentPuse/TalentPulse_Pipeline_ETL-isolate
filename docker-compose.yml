@@ -17,6 +17,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - talentpulse
     deploy:
       resources:
         limits:
@@ -40,6 +42,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - talentpulse
     deploy:
       resources:
         limits:
@@ -64,6 +68,8 @@ services:
     volumes:
       - metabase_plugins:/plugins
     restart: unless-stopped
+    networks:
+      - talentpulse
     deploy:
       resources:
         limits:
@@ -82,6 +88,8 @@ services:
     ports:
       - "4200:4200"
     restart: unless-stopped
+    networks:
+      - talentpulse
     deploy:
       resources:
         limits:
@@ -110,6 +118,8 @@ services:
         condition: service_healthy
       prefect-server:
         condition: service_started
+    networks:
+      - talentpulse
     restart: unless-stopped
     deploy:
       resources:
@@ -126,10 +136,17 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - talentpulse
     deploy:
       resources:
         limits:
           memory: 256M
+
+networks:
+  talentpulse:
+    name: talentpulse
+    driver: bridge
 
 volumes:
   pgdata:
