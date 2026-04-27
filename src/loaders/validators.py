@@ -17,16 +17,33 @@ ALLOWED_FUNCTION_IDS: set[int] = {27}
 ValidationResult = Optional[tuple[str, str]]
 
 
+FOCUS_KEYWORDS: set[str] = {
+    "data engineer", "data analyst", "ai", "machine learning",
+    "data science", "data scientist", "big data", "analytics",
+}
+
+
 def validate_focus(
     payload: dict, allowed_ids: set[int] | None = None
 ) -> ValidationResult:
     """Reject if the job's function is not in `allowed_ids`.
 
-    Looks at payload['job_function']['children'][*]['id'] first (the leaf
-    function), falls back to parentId.
+    Handles two shapes:
+    - dict with children[*].id  (raw API structure)
+    - str                       (parser-flattened display name)
     """
     allowed = allowed_ids or ALLOWED_FUNCTION_IDS
-    jf = payload.get("job_function") or {}
+    jf = payload.get("job_function")
+
+    if jf is None:
+        return None
+
+    if isinstance(jf, str):
+        lower = jf.lower()
+        if any(kw in lower for kw in FOCUS_KEYWORDS):
+            return None
+        return ("OUT_OF_FOCUS", f"function='{jf}' (string, no keyword match)")
+
     if not isinstance(jf, dict):
         return ("OUT_OF_FOCUS", f"job_function is not a dict: {type(jf).__name__}")
 
@@ -36,7 +53,6 @@ def validate_focus(
             if isinstance(c, dict) and c.get("id") in allowed:
                 return None
 
-    # No child id matched; report what we saw for audit
     parent_id = jf.get("parentId")
     fn_name = None
     if isinstance(children, list) and children and isinstance(children[0], dict):
