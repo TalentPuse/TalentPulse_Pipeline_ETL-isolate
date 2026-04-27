@@ -1,10 +1,11 @@
 """TalentPulse VietnamWorks pipeline orchestrated with Prefect.
 
 Wires existing entry points into a single flow:
-    listing_crawl → seed_queue → detail_crawl → detail_parse → load_warehouse
+    listing_crawl → seed_queue → detail_crawl → detail_parse → load_warehouse → dbt_transform
 """
 from __future__ import annotations
 
+import subprocess
 import sys
 
 from prefect import flow, get_run_logger, task
@@ -55,6 +56,24 @@ def load_warehouse() -> dict:
     return JobDetailLoader().run_batch()
 
 
+@task(name="dbt_transform", retries=1, timeout_seconds=600)
+def dbt_transform() -> str:
+    logger = get_run_logger()
+    dbt_dir = "/app/dbt_transform"
+    for cmd in ["dbt seed", "dbt run"]:
+        full_cmd = f"{cmd} --profiles-dir . --project-dir {dbt_dir}"
+        logger.info(f"running: {full_cmd}")
+        result = subprocess.run(
+            full_cmd.split(),
+            capture_output=True, text=True, cwd=dbt_dir,
+        )
+        logger.info(result.stdout[-2000:] if result.stdout else "")
+        if result.returncode != 0:
+            logger.error(result.stderr[-2000:] if result.stderr else "")
+            raise RuntimeError(f"{cmd} failed with exit code {result.returncode}")
+    return "dbt seed + run OK"
+
+
 @flow(name="vnw-pipeline")
 def vnw_pipeline(
     keywords: list[str] | None = None,
@@ -76,10 +95,12 @@ def vnw_pipeline(
     detail_crawl(max_jobs=detail_max_jobs)
     parse_result = detail_parse(force=force_reparse)
     load_result = load_warehouse()
+    dbt_result = dbt_transform()
     return {
         "seed": seed_result,
         "parse": parse_result,
         "load": load_result,
+        "dbt": dbt_result,
     }
 
 

@@ -5,3 +5,4 @@ RUN pip install --no-cache-dir -r worker-requirements.txt
 ENV PYTHONPATH=/app
 COPY src/ ./src/
 COPY orchestration/ ./orchestration/
+COPY dbt_transform/ ./dbt_transform/
