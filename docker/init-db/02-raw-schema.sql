@@ -65,6 +65,31 @@ CREATE TABLE IF NOT EXISTS raw.job_detail (
     num_of_views        INT,
     num_of_applications INT,
 
+    -- v2: Tier-1 expanded fields
+    company_size        VARCHAR,
+    company_size_id     INT,
+    company_color       VARCHAR,
+    num_of_recruits     INT,
+    salary_period_id    INT,
+    pretty_salary_vi    TEXT,
+    pretty_salary_en    TEXT,
+    working_days        VARCHAR,
+    working_from_hour   VARCHAR,
+    working_to_hour     VARCHAR,
+    highest_degree_id   INT,
+    language_selected   TEXT,
+    language_selected_vi TEXT,
+    range_age           VARCHAR,
+    required_resume     BOOLEAN,
+    required_cover_letter BOOLEAN,
+    primary_address     TEXT,
+    contact_name        VARCHAR,
+    contact_email       VARCHAR,
+    services            JSONB NOT NULL DEFAULT '[]'::jsonb,
+    canonical_slug      TEXT,
+    is_active           BOOLEAN,
+    online_on           TIMESTAMPTZ,
+
     PRIMARY KEY (source, source_job_id)
 );
 

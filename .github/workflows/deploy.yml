@@ -151,5 +151,13 @@ jobs:
           docker compose up -d
           docker image prune -f
 
+          # Run DB migrations (idempotent ALTER TABLE IF NOT EXISTS)
+          echo "Running database migrations..."
+          source .env 2>/dev/null || true
+          for f in scripts/migrate_*.sql; do
+            echo "  applying $f"
+            docker exec -i talentpulse-postgres psql -U "${POSTGRES_USER:-admin}" -d "${DB_NAME:-warehouse}" < "$f" || true
+          done
+
           echo "Deployment successful!"
           docker compose ps
