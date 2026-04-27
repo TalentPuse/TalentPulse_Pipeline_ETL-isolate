@@ -1,4 +1,5 @@
 import os
+from urllib.parse import quote_plus
 from dotenv import load_dotenv
 from typing import Optional
 
@@ -41,6 +42,7 @@ class Config:
 
     @classmethod
     def get_db_uri(cls) -> str:
-        return f"postgresql://{cls.DB_USER}:{cls.DB_PASSWORD}@{cls.DB_HOST}:{cls.DB_PORT}/{cls.DB_NAME}"
+        password = quote_plus(cls.DB_PASSWORD)
+        return f"postgresql://{cls.DB_USER}:{password}@{cls.DB_HOST}:{cls.DB_PORT}/{cls.DB_NAME}"
 
 config = Config()

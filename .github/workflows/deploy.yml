@@ -104,15 +104,19 @@ jobs:
           echo "Working directory: $(pwd)"
           rm -f .env
 
+          DB_PASS_ENCODED=$(python3 -c "from urllib.parse import quote_plus; print(quote_plus('${{ secrets.POSTGRES_PASSWORD }}'))")
+          MINIO_PASS_ENCODED=$(python3 -c "from urllib.parse import quote_plus; print(quote_plus('${{ secrets.MINIO_ROOT_PASSWORD }}'))")
+
           cat > .env <<EOF
           POSTGRES_USER=${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          DB_PASSWORD_ENCODED=${DB_PASS_ENCODED}
           DB_NAME=${{ vars.DB_NAME || 'warehouse' }}
           MINIO_ROOT_USER=${{ secrets.MINIO_ROOT_USER }}
           MINIO_ROOT_PASSWORD=${{ secrets.MINIO_ROOT_PASSWORD }}
           S3_ENDPOINT_URL=http://minio:9000
           S3_ACCESS_KEY=${{ secrets.MINIO_ROOT_USER }}
-          S3_SECRET_KEY=${{ secrets.MINIO_ROOT_PASSWORD }}
+          S3_SECRET_KEY=${MINIO_PASS_ENCODED}
           S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME || 'talentpulse-raw' }}
           PREFECT_UI_API_URL=${{ secrets.PREFECT_UI_API_URL || 'http://localhost:4200/api' }}
           CRAWLER_CONTACT_EMAIL=${{ secrets.CRAWLER_CONTACT_EMAIL || 'contact@example.com' }}

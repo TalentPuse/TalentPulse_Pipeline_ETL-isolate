@@ -81,7 +81,7 @@ services:
     command: prefect server start --host 0.0.0.0 --port 4200
     environment:
       PREFECT_UI_API_URL: ${PREFECT_UI_API_URL:-http://localhost:4200/api}
-      PREFECT_SERVER_DATABASE_CONNECTION_URL: "postgresql+asyncpg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-password}@postgres:5432/prefect"
+      PREFECT_SERVER_DATABASE_CONNECTION_URL: "postgresql+asyncpg://${POSTGRES_USER:-admin}:${DB_PASSWORD_ENCODED:-password}@postgres:5432/prefect"
     depends_on:
       postgres:
         condition: service_healthy
@@ -132,7 +132,7 @@ services:
     container_name: talentpulse-telegram-bot
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-password}@postgres:5432/${DB_NAME:-warehouse}"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-admin}:${DB_PASSWORD_ENCODED:-password}@postgres:5432/${DB_NAME:-warehouse}"
     depends_on:
       postgres:
         condition: service_healthy
