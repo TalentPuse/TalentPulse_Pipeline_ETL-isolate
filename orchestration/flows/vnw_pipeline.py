@@ -84,4 +84,17 @@ def vnw_pipeline(
 
 
 if __name__ == "__main__":
-    vnw_pipeline()
+    import os
+
+    if os.getenv("PREFECT_DEPLOY", "0") == "1":
+        vnw_pipeline.serve(
+            name="vnw-pipeline-daily",
+            cron="0 2 * * *",
+            tags=["vietnamworks", "etl"],
+            parameters={
+                "keywords": ["Data Engineer", "AI Engineer"],
+                "listing_pages": 3,
+            },
+        )
+    else:
+        vnw_pipeline()

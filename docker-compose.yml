@@ -98,9 +98,10 @@ services:
   prefect-worker:
     image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-talentpulse/pipeline_data}-worker:${IMAGE_TAG:-develop}
     container_name: talentpulse-prefect-worker
-    command: prefect worker start --pool default-agent-pool --type process
+    command: python -m orchestration.flows.vnw_pipeline
     environment:
       PREFECT_API_URL: http://prefect-server:4200/api
+      PREFECT_DEPLOY: "1"
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: ${POSTGRES_USER:-admin}
