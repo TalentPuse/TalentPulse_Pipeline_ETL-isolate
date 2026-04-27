@@ -1,8 +1,8 @@
-"""Seeder: read parsed listing JSONs from MinIO and enqueue into raw.crawl_log."""
+"""Seeder: read listing JSONs from MinIO and enqueue into raw.crawl_log."""
 import json
 import logging
 
-from src.crawlers.vietnamworks.detail.url_builder import is_allowed
+from src.crawlers.vietnamworks.detail.url_builder import build_detail_url, is_allowed
 from src.storage.crawl_log import CrawlLog
 from src.storage.minio_client import MinioClient
 from src.utils.config import config
@@ -10,10 +10,10 @@ from src.utils.config import config
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-PARSED_PREFIX = "parsed/listings/vietnamworks/"
+RAW_PREFIX = "listings/vietnamworks/"
 
 
-def seed_from_listings(prefix: str = PARSED_PREFIX) -> dict:
+def seed_from_listings(prefix: str = RAW_PREFIX) -> dict:
     log = CrawlLog()
     minio = MinioClient()
     bucket = config.S3_BUCKET_NAME
@@ -28,11 +28,17 @@ def seed_from_listings(prefix: str = PARSED_PREFIX) -> dict:
         counters["scanned_files"] += 1
 
         body = minio.s3_client.get_object(Bucket=bucket, Key=key)["Body"].read()
-        records = json.loads(body)
+        payload = json.loads(body)
+        records = payload.get("data", []) or []
         for rec in records:
-            job_id = str(rec.get("source_job_id") or "").strip()
-            url = (rec.get("source_url") or "").strip()
-            if not job_id or not url:
+            job_id = str(rec.get("jobId") or "").strip()
+            alias = (rec.get("alias") or "").strip()
+            if not job_id or not alias:
+                counters["skipped"] += 1
+                continue
+            try:
+                url = build_detail_url(alias, job_id)
+            except ValueError:
                 counters["skipped"] += 1
                 continue
             if not is_allowed(url):
