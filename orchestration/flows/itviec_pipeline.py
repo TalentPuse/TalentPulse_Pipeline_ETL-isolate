@@ -101,10 +101,13 @@ def detail_parse(force: bool = False) -> dict:
     return result
 
 
+ITVIEC_PARSED_PREFIX = "parsed/details/itviec/"
+
+
 @task(name="itviec_load_warehouse", retries=2)
 def load_warehouse() -> dict:
     t0 = time.time()
-    result = JobDetailLoader().run_batch()
+    result = JobDetailLoader().run_batch(prefix=ITVIEC_PARSED_PREFIX)
     dur = time.time() - t0
     create_markdown_artifact(
         markdown=_counters_table("itviec", "load_warehouse", result, dur),
