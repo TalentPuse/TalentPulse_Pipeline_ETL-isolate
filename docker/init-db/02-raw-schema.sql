@@ -5,7 +5,7 @@ CREATE SCHEMA IF NOT EXISTS raw;
 
 -- ── crawl_log ──────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS raw.crawl_log (
-    job_id          VARCHAR PRIMARY KEY,
+    job_id          VARCHAR NOT NULL,
     source          VARCHAR NOT NULL DEFAULT 'vietnamworks',
     status          VARCHAR NOT NULL,
     url             TEXT NOT NULL,
@@ -16,7 +16,9 @@ CREATE TABLE IF NOT EXISTS raw.crawl_log (
     http_status     INT,
     error_message   TEXT,
     raw_object_key  TEXT,
-    crawl_run_id    VARCHAR
+    crawl_run_id    VARCHAR,
+
+    PRIMARY KEY (source, job_id)
 );
 
 CREATE INDEX IF NOT EXISTS ix_crawl_log_status     ON raw.crawl_log(status);

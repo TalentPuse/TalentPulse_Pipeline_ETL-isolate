@@ -127,6 +127,37 @@ services:
         limits:
           memory: 1G
 
+  itviec-worker:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-talentpulse/pipeline_data}-itviec:${IMAGE_TAG:-develop}
+    container_name: talentpulse-itviec-worker
+    command: python -m orchestration.flows.itviec_pipeline
+    environment:
+      PREFECT_API_URL: http://prefect-server:4200/api
+      PREFECT_DEPLOY: "1"
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${POSTGRES_USER:-admin}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      DB_NAME: ${DB_NAME:-warehouse}
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-talentpulse-raw}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      prefect-server:
+        condition: service_started
+    networks:
+      - talentpulse
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+
   telegram-bot:
     image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-talentpulse/pipeline_data}-telegram:${IMAGE_TAG:-develop}
     container_name: talentpulse-telegram-bot
