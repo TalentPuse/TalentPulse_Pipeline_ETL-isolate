@@ -131,6 +131,7 @@ class ITviecDetailParser:
             posted_at=data.get("datePosted"),
             expired_at=data.get("validThrough"),
             is_expired=False,
+            is_active=True,
         )
 
     def _parsed_key(self, job_id: str) -> str:

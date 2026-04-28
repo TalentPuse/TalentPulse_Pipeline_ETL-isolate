@@ -192,6 +192,8 @@ class TestParseHtml:
         assert detail.posted_at == "2026-04-24"
         assert detail.expired_at == "2026-05-29"
         assert detail.parser_version == "itviec-v1"
+        assert detail.is_active is True
+        assert detail.is_expired is False
 
     def test_skills_parsed(self):
         parser = ITviecDetailParser.__new__(ITviecDetailParser)
