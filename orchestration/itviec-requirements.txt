@@ -1,6 +1,7 @@
 # Deps for the ITviec Prefect worker container.
 playwright>=1.44.0
 prefect==2.16.5
+griffe<1.0
 requests==2.31.0
 beautifulsoup4==4.12.2
 sqlalchemy==2.0.28
