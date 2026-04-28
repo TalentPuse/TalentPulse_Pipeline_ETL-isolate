@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/playwright/python:v1.44.0-noble
+FROM mcr.microsoft.com/playwright/python:jammy
 WORKDIR /app
 COPY orchestration/itviec-requirements.txt .
 RUN pip install --no-cache-dir -r itviec-requirements.txt
