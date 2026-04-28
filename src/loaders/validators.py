@@ -22,6 +22,8 @@ FOCUS_KEYWORDS: set[str] = {
     "data science", "data scientist", "big data", "analytics",
 }
 
+SKIP_FOCUS_SOURCES: set[str] = {"itviec"}
+
 
 def validate_focus(
     payload: dict, allowed_ids: set[int] | None = None
@@ -90,4 +92,9 @@ def validate(
     payload: dict, allowed_ids: set[int] | None = None
 ) -> ValidationResult:
     """Run all validators. Hard rules first, then focus filter."""
-    return validate_business_rules(payload) or validate_focus(payload, allowed_ids)
+    result = validate_business_rules(payload)
+    if result:
+        return result
+    if payload.get("source") in SKIP_FOCUS_SOURCES:
+        return None
+    return validate_focus(payload, allowed_ids)
