@@ -148,6 +148,10 @@ class ITviecListingCrawler:
             counters["keywords"] += 1
             counters["jobs_raw"] += len(urls)
             all_urls.extend(urls)
+            logger.info(
+                f"[itviec-listing] keyword '{kw}' done: {len(urls)} URLs"
+                f" ({counters['keywords']}/{len(keywords)} keywords)"
+            )
 
         unique = list(dict.fromkeys(all_urls))
         counters["jobs_unique"] = len(unique)

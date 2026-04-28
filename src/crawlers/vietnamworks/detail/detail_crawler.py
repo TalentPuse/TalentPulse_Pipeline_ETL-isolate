@@ -106,6 +106,10 @@ class DetailCrawler:
                 break
             counters[outcome] = counters.get(outcome, 0) + 1
             processed += 1
+            logger.info(
+                f"[vnw] {processed}/{max_jobs or '?'} {outcome}"
+                f" — job_id={job_id} (ok={counters['success']} fail={counters['failed']})"
+            )
 
             jitter_sleep(config.CRAWLER_RATE_SECONDS)
 
