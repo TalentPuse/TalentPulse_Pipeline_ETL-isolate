@@ -13,7 +13,7 @@ class TokenBucket:
     def __init__(self, rate_per_sec: float, burst: int = 1, clock=time.monotonic, sleeper=time.sleep):
         if rate_per_sec <= 0:
             raise ValueError("rate_per_sec must be > 0")
-        self._refill_rate = rate_per_sec  # tokens per second
+        self._refill_rate = rate_per_sec
         self._capacity = float(burst)
         self._tokens = float(burst)
         self._last = clock()
@@ -41,7 +41,7 @@ class TokenBucket:
 
 
 def jitter_sleep(base: float, spread: float = 0.4, sleeper=time.sleep) -> None:
-    """Sleep for base ± (base * spread) seconds, never below 0.1s."""
+    """Sleep for base +/- (base * spread) seconds, never below 0.1s."""
     delta = base * spread
     duration = max(0.1, base + random.uniform(-delta, delta))
     sleeper(duration)

@@ -1,4 +1,4 @@
-from src.crawlers.vietnamworks.detail.rate_limiter import TokenBucket, jitter_sleep
+from src.utils.rate_limiter import TokenBucket, jitter_sleep
 
 
 class FakeClock:

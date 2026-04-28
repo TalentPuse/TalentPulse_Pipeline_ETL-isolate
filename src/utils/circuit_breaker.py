@@ -1,4 +1,4 @@
-"""Circuit breaker that opens on sustained errors from VietnamWorks."""
+"""Circuit breaker that opens on sustained HTTP errors."""
 import time
 from collections import deque
 
@@ -29,7 +29,6 @@ class CircuitBreaker:
         self._evaluate()
 
     def _evaluate(self) -> None:
-        # 3 consecutive 403
         if len(self._events) >= 3 and all(s == 403 for s in list(self._events)[-3:]):
             self._trip("3 consecutive 403 responses")
             return
@@ -51,7 +50,6 @@ class CircuitBreaker:
         if self._opened_at is None:
             return False
         if self._clock() - self._opened_at >= self._cooldown:
-            # auto-reset after cooldown
             self._opened_at = None
             self._reason = None
             self._events.clear()

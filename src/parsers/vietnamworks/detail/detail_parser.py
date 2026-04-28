@@ -1,19 +1,14 @@
-"""Orchestrator: HTML.gz → JobDetail JSON in MinIO."""
-import gzip
-import json
+"""Orchestrator: HTML.gz -> JobDetail JSON in MinIO."""
 import logging
 from datetime import datetime, timezone
 
-from botocore.exceptions import ClientError
-
+from src.parsers.base import MinIOParser
 from src.parsers.vietnamworks.detail.html_cleaner import strip_html
 from src.parsers.vietnamworks.detail.ref_resolver import resolve
 from src.parsers.vietnamworks.detail.rsc_decoder import ParseError, decode, find_main_job_ref
 from src.parsers.vietnamworks.detail.schema import JobDetail
 from src.storage.minio_client import MinioClient
-from src.utils.config import config
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -21,8 +16,6 @@ class DetailParseError(Exception):
     pass
 
 
-PARSED_PREFIX = "parsed/details/vietnamworks/"
-HTML_PREFIX = "details/vietnamworks/html/"
 DETAIL_BASE = "https://www.vietnamworks.com"
 
 
@@ -86,12 +79,13 @@ def _build_url(alias: str | None, job_id: str) -> str | None:
     return f"{DETAIL_BASE}/{alias}-{job_id}-jv"
 
 
-class DetailParser:
+class DetailParser(MinIOParser):
     VERSION = "v2"
+    HTML_PREFIX = "details/vietnamworks/html/"
+    PARSED_PREFIX = "parsed/details/vietnamworks/"
 
     def __init__(self, minio: MinioClient | None = None):
-        self.minio = minio or MinioClient()
-        self.bucket = config.S3_BUCKET_NAME
+        super().__init__(minio)
 
     def parse_html(self, html: str, source_job_id: str | None = None) -> JobDetail:
         try:
@@ -104,7 +98,6 @@ class DetailParser:
         smin = r.get("salaryMin")
         smax = r.get("salaryMax")
         is_visible = bool(r.get("isSalaryVisible", False))
-        # treat 0/0 as not visible regardless of flag
         if (smin in (None, 0)) and (smax in (None, 0)):
             is_visible = False
             smin = None
@@ -113,7 +106,7 @@ class DetailParser:
         job_id = str(r.get("jobId") or source_job_id or "")
         alias = r.get("alias")
 
-        d = JobDetail(
+        return JobDetail(
             source_job_id=job_id,
             source_url=_build_url(alias, job_id),
             parser_version=self.VERSION,
@@ -145,8 +138,6 @@ class DetailParser:
             is_expired=bool(r.get("isExpired", False)),
             num_of_views=r.get("numOfViews"),
             num_of_applications=r.get("numOfApplications"),
-
-            # v2: Tier-1 expanded
             company_size=r.get("companySize"),
             company_size_id=r.get("companySizeId"),
             company_color=r.get("companyColor"),
@@ -171,58 +162,6 @@ class DetailParser:
             is_active=r.get("isActive"),
             online_on=r.get("onlineOn"),
         )
-        return d
-
-    def _parsed_key(self, job_id: str) -> str:
-        return f"{PARSED_PREFIX}{job_id}.json"
-
-    def _exists(self, key: str) -> bool:
-        try:
-            self.minio.s3_client.head_object(Bucket=self.bucket, Key=key)
-            return True
-        except ClientError:
-            return False
-
-    def process_one(self, html_object_key: str, *, force: bool = False) -> str | None:
-        job_id = html_object_key.split("/")[-1].replace(".html.gz", "")
-        parsed_key = self._parsed_key(job_id)
-        if not force and self._exists(parsed_key):
-            return None
-
-        body = self.minio.s3_client.get_object(Bucket=self.bucket, Key=html_object_key)["Body"].read()
-        html = gzip.decompress(body).decode("utf-8", errors="replace")
-        detail = self.parse_html(html, source_job_id=job_id)
-
-        self.minio.upload_string(
-            bucket_name=self.bucket,
-            object_name=parsed_key,
-            content=json.dumps(detail.to_dict(), ensure_ascii=False, indent=2),
-            content_type="application/json",
-        )
-        return parsed_key
-
-    def run_batch(self, prefix: str = HTML_PREFIX, *, force: bool = False) -> dict:
-        counters = {"success": 0, "skipped": 0, "failed": 0}
-        paginator = self.minio.s3_client.get_paginator("list_objects_v2")
-        for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
-            for obj in page.get("Contents", []) or []:
-                key = obj["Key"]
-                if not key.endswith(".html.gz"):
-                    continue
-                try:
-                    parsed_key = self.process_one(key, force=force)
-                    if parsed_key is None:
-                        counters["skipped"] += 1
-                    else:
-                        counters["success"] += 1
-                except DetailParseError as e:
-                    logger.error(f"parse failed {key}: {e}")
-                    counters["failed"] += 1
-                except Exception as e:
-                    logger.exception(f"unexpected error on {key}: {e}")
-                    counters["failed"] += 1
-        logger.info(f"batch done: {counters}")
-        return counters
 
 
 def main() -> None:
@@ -234,4 +173,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     main()

@@ -1,15 +1,15 @@
 """TalentPulse ITviec pipeline orchestrated with Prefect.
 
-    listing_crawl → seed_queue → detail_crawl → detail_parse → load_warehouse → dbt_transform
+    listing_crawl -> seed_queue -> detail_crawl -> detail_parse -> load_warehouse -> dbt_transform
 """
 from __future__ import annotations
 
-import subprocess
 import time
 
 from prefect import flow, get_run_logger, task
 from prefect.artifacts import create_markdown_artifact
 
+from orchestration.flows._shared import counters_table, fmt_duration, run_dbt
 from src.crawlers.browser import StealthBrowser
 from src.crawlers.itviec.detail import ITviecDetailCrawler
 from src.crawlers.itviec.listing import ITviecListingCrawler
@@ -20,20 +20,7 @@ from src.storage.crawl_log import CrawlLog
 from src.storage.minio_client import MinioClient
 
 
-def _fmt_duration(seconds: float) -> str:
-    m, s = divmod(int(seconds), 60)
-    return f"{m}m {s}s" if m else f"{s}s"
-
-
-def _counters_table(source: str, stage: str, counters: dict, duration: float) -> str:
-    rows = "\n".join(f"| {k} | {v} |" for k, v in counters.items())
-    return (
-        f"| Metric | Value |\n|--------|-------|\n"
-        f"| Source | {source} |\n"
-        f"| Stage | {stage} |\n"
-        f"{rows}\n"
-        f"| Duration | {_fmt_duration(duration)} |"
-    )
+ITVIEC_PARSED_PREFIX = "parsed/details/itviec/"
 
 
 @task(name="itviec_listing_crawl", retries=1, timeout_seconds=1800)
@@ -46,7 +33,7 @@ def listing_crawl(keywords: list[str], max_pages: int | None = None) -> list[str
     dur = time.time() - t0
     logger.info(f"Listing done: {result['counters']}")
     create_markdown_artifact(
-        markdown=_counters_table("itviec", "listing_crawl", result["counters"], dur),
+        markdown=counters_table("itviec", "listing_crawl", result["counters"], dur),
         key="itviec-listing",
         description="ITviec listing crawl results",
     )
@@ -60,7 +47,7 @@ def seed_queue(urls: list[str]) -> dict:
     dur = time.time() - t0
     get_run_logger().info(f"Seed result: {result}")
     create_markdown_artifact(
-        markdown=_counters_table("itviec", "seed_queue", result, dur),
+        markdown=counters_table("itviec", "seed_queue", result, dur),
         key="itviec-seed",
         description="ITviec queue seeding results",
     )
@@ -81,7 +68,7 @@ def detail_crawl(max_jobs: int | None = None) -> dict:
     dur = time.time() - t0
     logger.info(f"Detail crawl done: {result}")
     create_markdown_artifact(
-        markdown=_counters_table("itviec", "detail_crawl", result, dur),
+        markdown=counters_table("itviec", "detail_crawl", result, dur),
         key="itviec-detail-crawl",
         description="ITviec detail crawl results",
     )
@@ -94,14 +81,11 @@ def detail_parse(force: bool = False) -> dict:
     result = ITviecDetailParser().run_batch(force=force)
     dur = time.time() - t0
     create_markdown_artifact(
-        markdown=_counters_table("itviec", "detail_parse", result, dur),
+        markdown=counters_table("itviec", "detail_parse", result, dur),
         key="itviec-parse",
         description="ITviec parse results",
     )
     return result
-
-
-ITVIEC_PARSED_PREFIX = "parsed/details/itviec/"
 
 
 @task(name="itviec_load_warehouse", retries=2)
@@ -110,7 +94,7 @@ def load_warehouse() -> dict:
     result = JobDetailLoader().run_batch(prefix=ITVIEC_PARSED_PREFIX)
     dur = time.time() - t0
     create_markdown_artifact(
-        markdown=_counters_table("itviec", "load_warehouse", result, dur),
+        markdown=counters_table("itviec", "load_warehouse", result, dur),
         key="itviec-load",
         description="ITviec warehouse load results",
     )
@@ -119,25 +103,7 @@ def load_warehouse() -> dict:
 
 @task(name="itviec_dbt_transform", retries=1, timeout_seconds=600)
 def dbt_transform() -> str:
-    logger = get_run_logger()
-    dbt_dir = "/app/dbt_transform"
-    cmds = [
-        "dbt seed",
-        "dbt run --exclude fct_jobs_daily",
-        "dbt run --select fct_jobs_daily --full-refresh",
-    ]
-    for cmd in cmds:
-        full_cmd = f"{cmd} --profiles-dir . --project-dir {dbt_dir}"
-        logger.info(f"running: {full_cmd}")
-        result = subprocess.run(
-            full_cmd.split(),
-            capture_output=True, text=True, cwd=dbt_dir,
-        )
-        logger.info(result.stdout[-2000:] if result.stdout else "")
-        if result.returncode != 0:
-            logger.error(result.stderr[-2000:] if result.stderr else "")
-            raise RuntimeError(f"{cmd} failed with exit code {result.returncode}")
-    return "dbt seed + run OK"
+    return run_dbt()
 
 
 @flow(name="itviec-pipeline")
@@ -157,9 +123,9 @@ def itviec_pipeline(
     load_result = load_warehouse()
     dbt_result = dbt_transform()
 
-    total_dur = _fmt_duration(time.time() - flow_t0)
+    total_dur = fmt_duration(time.time() - flow_t0)
     summary = (
-        "## Pipeline Summary — ITviec\n"
+        "## Pipeline Summary -- ITviec\n"
         "| Stage | Result |\n|-------|--------|\n"
         f"| Listing | {len(urls)} URLs collected |\n"
         f"| Seed | {seed_result.get('enqueued', 0)} enqueued, {seed_result.get('skipped', 0)} skipped |\n"

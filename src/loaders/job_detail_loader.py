@@ -14,7 +14,6 @@ from src.storage.job_detail_repo import JobDetailRepo
 from src.storage.minio_client import MinioClient
 from src.utils.config import config
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 

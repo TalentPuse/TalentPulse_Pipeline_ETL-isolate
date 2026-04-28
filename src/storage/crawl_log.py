@@ -3,11 +3,11 @@
 v2: composite PK (source, job_id) for multi-source support.
 """
 import logging
-from contextlib import contextmanager
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
+from src.storage.db import pg_connection
 from src.utils.config import config
 
 logger = logging.getLogger(__name__)
@@ -17,17 +17,8 @@ class CrawlLog:
     def __init__(self, dsn: str | None = None):
         self.dsn = dsn or config.get_db_uri()
 
-    @contextmanager
     def _conn(self):
-        conn = psycopg2.connect(self.dsn)
-        try:
-            yield conn
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
-        finally:
-            conn.close()
+        return pg_connection(self.dsn)
 
     # ------------------------------------------------------------------ writes
 

@@ -1,0 +1,9 @@
+# Shared dependencies for all pipeline workers.
+requests==2.31.0
+beautifulsoup4==4.12.2
+sqlalchemy==2.0.28
+psycopg2-binary==2.9.9
+boto3==1.34.62
+python-dotenv==1.0.1
+tenacity==8.2.3
+dbt-postgres==1.7.13

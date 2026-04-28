@@ -1,4 +1,4 @@
-from src.crawlers.vietnamworks.detail.circuit_breaker import CircuitBreaker
+from src.utils.circuit_breaker import CircuitBreaker
 
 
 class FakeClock:

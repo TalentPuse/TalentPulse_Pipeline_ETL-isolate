@@ -8,7 +8,6 @@ import requests
 from src.utils.config import config
 from src.storage.minio_client import MinioClient
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 

@@ -1,12 +1,12 @@
 """Postgres repository for raw.job_detail (upsert from parsed JSON)."""
 import logging
-from contextlib import contextmanager
 from datetime import datetime
 from typing import Any, Iterable
 
 import psycopg2
 from psycopg2.extras import Json, RealDictCursor
 
+from src.storage.db import pg_connection
 from src.utils.config import config
 
 logger = logging.getLogger(__name__)
@@ -74,17 +74,8 @@ class JobDetailRepo:
     def __init__(self, dsn: str | None = None):
         self.dsn = dsn or config.get_db_uri()
 
-    @contextmanager
     def _conn(self):
-        conn = psycopg2.connect(self.dsn)
-        try:
-            yield conn
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
-        finally:
-            conn.close()
+        return pg_connection(self.dsn)
 
     def _row_from_payload(self, payload: dict) -> dict:
         row = {c: _coerce(c, payload.get(c)) for c in _ALL_COLS}

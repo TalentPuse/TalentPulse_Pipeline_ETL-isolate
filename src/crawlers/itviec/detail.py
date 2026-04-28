@@ -7,8 +7,8 @@ import time
 import uuid
 
 from src.crawlers.browser import StealthBrowser
-from src.crawlers.vietnamworks.detail.circuit_breaker import CircuitBreaker
-from src.crawlers.vietnamworks.detail.rate_limiter import jitter_sleep
+from src.utils.circuit_breaker import CircuitBreaker
+from src.utils.rate_limiter import jitter_sleep
 from src.storage.crawl_log import CrawlLog
 from src.storage.minio_client import MinioClient
 from src.utils import safety

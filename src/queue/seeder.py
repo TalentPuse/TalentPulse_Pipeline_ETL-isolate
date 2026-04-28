@@ -7,7 +7,6 @@ from src.storage.crawl_log import CrawlLog
 from src.storage.minio_client import MinioClient
 from src.utils.config import config
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 RAW_PREFIX = "listings/vietnamworks/"
@@ -54,4 +53,5 @@ def seed_from_listings(prefix: str = RAW_PREFIX) -> dict:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     seed_from_listings()

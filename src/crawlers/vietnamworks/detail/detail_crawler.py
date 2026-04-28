@@ -5,16 +5,15 @@ import logging
 import time
 import uuid
 
-from src.crawlers.vietnamworks.detail.circuit_breaker import CircuitBreaker
 from src.crawlers.vietnamworks.detail.fetcher import BlockedError, ExpiredError, Fetcher, TransientError
-from src.crawlers.vietnamworks.detail.rate_limiter import TokenBucket, jitter_sleep
+from src.utils.circuit_breaker import CircuitBreaker
+from src.utils.rate_limiter import TokenBucket, jitter_sleep
 from src.crawlers.vietnamworks.detail.url_builder import is_allowed
 from src.storage.crawl_log import CrawlLog
 from src.storage.minio_client import MinioClient
 from src.utils import safety
 from src.utils.config import config
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -128,4 +127,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     main()

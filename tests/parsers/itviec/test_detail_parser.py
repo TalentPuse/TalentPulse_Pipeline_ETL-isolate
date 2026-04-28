@@ -305,7 +305,7 @@ class TestParseHtml:
 
 
 class TestProcessOne:
-    @patch("src.parsers.itviec.detail_parser.config")
+    @patch("src.parsers.base.config")
     def test_process_one_writes_parsed_json(self, mock_config):
         mock_config.S3_BUCKET_NAME = "test-bucket"
         minio = MagicMock()
@@ -325,7 +325,7 @@ class TestProcessOne:
         call_args = minio.upload_string.call_args
         assert call_args[1]["content_type"] == "application/json" or call_args[0][3] == "application/json"
 
-    @patch("src.parsers.itviec.detail_parser.config")
+    @patch("src.parsers.base.config")
     def test_process_one_skips_existing(self, mock_config):
         mock_config.S3_BUCKET_NAME = "test-bucket"
         minio = MagicMock()
@@ -337,7 +337,7 @@ class TestProcessOne:
         assert result is None
         minio.upload_string.assert_not_called()
 
-    @patch("src.parsers.itviec.detail_parser.config")
+    @patch("src.parsers.base.config")
     def test_process_one_force_overwrites(self, mock_config):
         mock_config.S3_BUCKET_NAME = "test-bucket"
         minio = MagicMock()
