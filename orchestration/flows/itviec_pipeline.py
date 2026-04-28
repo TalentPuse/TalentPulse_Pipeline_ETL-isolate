@@ -121,7 +121,12 @@ def load_warehouse() -> dict:
 def dbt_transform() -> str:
     logger = get_run_logger()
     dbt_dir = "/app/dbt_transform"
-    for cmd in ["dbt seed", "dbt run"]:
+    cmds = [
+        "dbt seed",
+        "dbt run --exclude fct_jobs_daily",
+        "dbt run --select fct_jobs_daily --full-refresh",
+    ]
+    for cmd in cmds:
         full_cmd = f"{cmd} --profiles-dir . --project-dir {dbt_dir}"
         logger.info(f"running: {full_cmd}")
         result = subprocess.run(
