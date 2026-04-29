@@ -4,6 +4,7 @@
 -- Only uses jobs with visible salary already normalized to VND monthly.
 
 select
+    coalesce(job_category, 'Other')                       as job_category,
     job_level,
     coalesce(city_canonical, 'Unknown')                   as city_canonical,
     coalesce(region, 'Unknown')                           as region,
@@ -18,6 +19,6 @@ select
 from {{ ref('silver_job_detail') }}
 where job_level is not null
   and salary_vnd_monthly_avg is not null
-group by 1, 2, 3
+group by 1, 2, 3, 4
 having count(*) >= 1
-order by job_level, city_canonical
+order by job_category, job_level, city_canonical

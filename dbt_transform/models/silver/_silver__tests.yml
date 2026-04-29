@@ -16,6 +16,16 @@ models:
           - not_null:
               config:
                 where: "city_raw_en is not null"
+      - name: job_category
+        description: "Coarse job category for website filtering. NULL = unmatched."
+        tests:
+          - accepted_values:
+              values: ['Data Engineer', 'Data Analyst', 'AI Engineer', 'Data Scientist',
+                       'Business Analyst', 'Business Development', 'Technical Sales',
+                       'Database Administrator', 'Data Management', 'Sales Operations',
+                       'Supply Chain Analyst']
+              config:
+                where: "job_category is not null"
       - name: salary_vnd_monthly_avg
         description: "Avg of min/max in VND monthly. Sanity bounds: 1M to 5B/month."
         tests:

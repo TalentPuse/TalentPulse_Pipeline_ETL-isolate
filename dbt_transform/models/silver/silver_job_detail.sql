@@ -18,6 +18,20 @@ city_extract as (
     from raw
 ),
 
+category_resolved as (
+    select
+        r.source,
+        r.source_job_id,
+        (
+            select tcm.job_category
+            from {{ ref('job_title_category_map') }} tcm
+            where lower(r.title) like '%' || tcm.keyword || '%'
+            order by tcm.priority asc
+            limit 1
+        ) as job_category
+    from raw r
+),
+
 joined as (
     select
         r.source,
@@ -76,6 +90,7 @@ joined as (
         r.working_to_hour,
         r.highest_degree_id,
         dm.degree_label,
+        cr.job_category,
         r.language_selected,
         r.language_selected_vi,
         r.range_age,
@@ -107,6 +122,8 @@ joined as (
         on dm.highest_degree_id = r.highest_degree_id
     left join {{ ref('company_size_map') }} csm
         on csm.company_size_id = r.company_size_id
+    left join category_resolved cr
+        on cr.source = r.source and cr.source_job_id = r.source_job_id
 )
 
 select * from joined

@@ -35,3 +35,6 @@ models:
 seeds:
   talentpulse:
     +schema: seeds
+    job_title_category_map:
+      +column_types:
+        priority: integer

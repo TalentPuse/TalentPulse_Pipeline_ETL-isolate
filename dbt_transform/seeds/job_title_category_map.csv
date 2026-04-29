@@ -1,0 +1,30 @@
+keyword,job_category,priority
+data engineer,Data Engineer,10
+data architect,Data Engineer,15
+data governance,Data Engineer,20
+analytics engineer,Data Engineer,15
+data analyst,Data Analyst,10
+data analytics,Data Analyst,15
+reporting engineer,Data Analyst,20
+business intelligence,Data Analyst,20
+bi analyst,Data Analyst,20
+data manager,Data Management,10
+sales analytics,Sales Operations,10
+demand analyst,Supply Chain Analyst,10
+ai engineer,AI Engineer,10
+ai developer,AI Engineer,10
+ai operations,AI Engineer,15
+ai solution,AI Engineer,15
+ai intern,AI Engineer,20
+artificial intelligence,AI Engineer,15
+machine learning,AI Engineer,20
+ml engineer,AI Engineer,20
+agentic ai,AI Engineer,15
+data science,Data Scientist,10
+data scientist,Data Scientist,10
+business analyst,Business Analyst,10
+system analyst,Business Analyst,20
+business development,Business Development,10
+technical sales,Technical Sales,10
+sales engineer,Technical Sales,20
+database administrator,Database Administrator,10

@@ -13,6 +13,7 @@ with today_snapshot as (
         source_job_id,
         current_date                         as snapshot_date,
         title,
+        job_category,
         company_id,
         company_name,
         company_size_bucket,

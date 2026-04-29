@@ -11,6 +11,16 @@ models:
         tests: [not_null]
       - name: snapshot_date
         tests: [not_null]
+      - name: job_category
+        description: "Job category from title keyword matching."
+        tests:
+          - accepted_values:
+              values: ['Data Engineer', 'Data Analyst', 'AI Engineer', 'Data Scientist',
+                       'Business Analyst', 'Business Development', 'Technical Sales',
+                       'Database Administrator', 'Data Management', 'Sales Operations',
+                       'Supply Chain Analyst']
+              config:
+                where: "job_category is not null"
 
   - name: mart_skill_demand
     description: "Skill demand snapshot. Pct of jobs mentioning each skill + avg VND salary."
