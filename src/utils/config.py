@@ -20,11 +20,35 @@ class Config:
     S3_SECRET_KEY: str = os.getenv("S3_SECRET_KEY", "minioadmin")
     S3_BUCKET_NAME: str = os.getenv("S3_BUCKET_NAME", "talentpulse-raw")
 
-    # Target configuration
-    TARGET_ROLES = ["Data Engineer", "AI Engineer"]
+    # Keywords per source (comma-separated in env)
+    VNW_KEYWORDS: list[str] = [
+        k.strip() for k in os.getenv("VNW_KEYWORDS", "Data Engineer,AI Engineer").split(",") if k.strip()
+    ]
+    ITVIEC_KEYWORDS: list[str] = [
+        k.strip() for k in os.getenv("ITVIEC_KEYWORDS", "data-engineer,ai-engineer,data-analyst").split(",") if k.strip()
+    ]
+
+    # VietnamWorks jobFunctionV3Id filter (comma-separated in env)
+    # 27 = "Data Engineer/Data Analyst/AI"
+    ALLOWED_FUNCTION_IDS: set[int] = {
+        int(x) for x in os.getenv("ALLOWED_FUNCTION_IDS", "27").split(",") if x.strip()
+    }
+
+    # Focus keywords for string-based job_function matching
+    FOCUS_KEYWORDS: set[str] = {
+        k.strip().lower() for k in os.getenv(
+            "FOCUS_KEYWORDS",
+            "data engineer,data analyst,ai,machine learning,data science,data scientist,big data,analytics"
+        ).split(",") if k.strip()
+    }
+
+    # Sources that skip focus validation entirely
+    SKIP_FOCUS_SOURCES: set[str] = {
+        s.strip() for s in os.getenv("SKIP_FOCUS_SOURCES", "itviec").split(",") if s.strip()
+    }
+
     LOCATIONS = ["Ho Chi Minh"]
-    # VietnamWorks jobFunctionV3Id = 27 is "Data Engineer/Data Analyst/AI"
-    TARGET_JOB_FUNCTION_IDS = [27]
+    TARGET_JOB_FUNCTION_IDS = list(ALLOWED_FUNCTION_IDS)
     # Safety cap on listing pagination (hitsPerPage=50)
     LISTING_MAX_PAGES: int = int(os.getenv("LISTING_MAX_PAGES", "5"))
 

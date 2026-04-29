@@ -139,7 +139,7 @@ class ITviecListingCrawler:
         max_pages: Optional[int] = None,
     ) -> dict:
         """Crawl all keywords. Returns counters + collected URLs."""
-        keywords = keywords or ["data-engineer", "ai-engineer", "data-analyst"]
+        keywords = keywords or config.ITVIEC_KEYWORDS
         all_urls: list[str] = []
         counters = {"keywords": 0, "pages": 0, "jobs_raw": 0}
 

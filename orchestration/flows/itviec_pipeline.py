@@ -10,6 +10,7 @@ from prefect import flow, get_run_logger, task
 from prefect.artifacts import create_markdown_artifact
 
 from orchestration.flows._shared import counters_table, fmt_duration, run_dbt
+from src.utils.config import config
 from src.crawlers.browser import StealthBrowser
 from src.crawlers.itviec.detail import ITviecDetailCrawler
 from src.crawlers.itviec.listing import ITviecListingCrawler
@@ -115,7 +116,7 @@ def itviec_pipeline(
 ) -> dict:
     """End-to-end ITviec pipeline."""
     flow_t0 = time.time()
-    keywords = keywords or ["data-engineer", "ai-engineer", "data-analyst"]
+    keywords = keywords or config.ITVIEC_KEYWORDS
     urls = listing_crawl(keywords, max_listing_pages)
     seed_result = seed_queue(urls)
     crawl_result = detail_crawl(max_jobs=detail_max_jobs)
@@ -159,7 +160,7 @@ if __name__ == "__main__":
             cron="0 4 * * *",
             tags=["itviec", "etl"],
             parameters={
-                "keywords": ["data-engineer", "ai-engineer", "data-analyst"],
+                "keywords": config.ITVIEC_KEYWORDS,
             },
         )
     else:

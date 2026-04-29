@@ -11,6 +11,7 @@ from prefect import flow, get_run_logger, task
 from prefect.artifacts import create_markdown_artifact
 
 from orchestration.flows._shared import counters_table, fmt_duration, run_dbt
+from src.utils.config import config
 from src.crawlers.vietnamworks.detail.detail_crawler import DetailCrawler
 from src.crawlers.vietnamworks.detail.fetcher import Fetcher
 from src.crawlers.vietnamworks.listing import VietnamWorksListingCrawler
@@ -108,7 +109,7 @@ def vnw_pipeline(
 ) -> dict:
     """End-to-end VietnamWorks pipeline."""
     flow_t0 = time.time()
-    keywords = keywords or ["Data Engineer", "AI Engineer"]
+    keywords = keywords or config.VNW_KEYWORDS
     listing_crawl(keywords, listing_pages)
     seed_result = seed_queue()
     crawl_result = detail_crawl(max_jobs=detail_max_jobs)
@@ -152,7 +153,7 @@ if __name__ == "__main__":
             cron="0 2 * * *",
             tags=["vietnamworks", "etl"],
             parameters={
-                "keywords": ["Data Engineer", "AI Engineer"],
+                "keywords": config.VNW_KEYWORDS,
                 "listing_pages": 3,
             },
         )

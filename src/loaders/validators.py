@@ -11,18 +11,9 @@ from __future__ import annotations
 
 from typing import Optional
 
-# VNW jobFunctionV3Id = 27 is "Data Engineer/Data Analyst/AI"
-ALLOWED_FUNCTION_IDS: set[int] = {27}
+from src.utils.config import config
 
 ValidationResult = Optional[tuple[str, str]]
-
-
-FOCUS_KEYWORDS: set[str] = {
-    "data engineer", "data analyst", "ai", "machine learning",
-    "data science", "data scientist", "big data", "analytics",
-}
-
-SKIP_FOCUS_SOURCES: set[str] = {"itviec"}
 
 
 def validate_focus(
@@ -34,7 +25,8 @@ def validate_focus(
     - dict with children[*].id  (raw API structure)
     - str                       (parser-flattened display name)
     """
-    allowed = allowed_ids or ALLOWED_FUNCTION_IDS
+    allowed = allowed_ids or config.ALLOWED_FUNCTION_IDS
+    focus_kw = config.FOCUS_KEYWORDS
     jf = payload.get("job_function")
 
     if jf is None:
@@ -42,7 +34,7 @@ def validate_focus(
 
     if isinstance(jf, str):
         lower = jf.lower()
-        if any(kw in lower for kw in FOCUS_KEYWORDS):
+        if any(kw in lower for kw in focus_kw):
             return None
         return ("OUT_OF_FOCUS", f"function='{jf}' (string, no keyword match)")
 
@@ -95,6 +87,6 @@ def validate(
     result = validate_business_rules(payload)
     if result:
         return result
-    if payload.get("source") in SKIP_FOCUS_SOURCES:
+    if payload.get("source") in config.SKIP_FOCUS_SOURCES:
         return None
     return validate_focus(payload, allowed_ids)

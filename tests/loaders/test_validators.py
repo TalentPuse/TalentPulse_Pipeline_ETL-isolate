@@ -1,12 +1,11 @@
 import pytest
 
 from src.loaders.validators import (
-    ALLOWED_FUNCTION_IDS,
-    FOCUS_KEYWORDS,
     validate,
     validate_business_rules,
     validate_focus,
 )
+from src.utils.config import config
 
 
 def _valid_de_payload(**overrides):
@@ -327,9 +326,9 @@ def test_validate_focus_catches_string_when_rules_pass():
 # ===== Constants =====
 
 def test_default_allowed_includes_27():
-    assert 27 in ALLOWED_FUNCTION_IDS
+    assert 27 in config.ALLOWED_FUNCTION_IDS
 
 
 def test_focus_keywords_are_lowercase():
-    for kw in FOCUS_KEYWORDS:
+    for kw in config.FOCUS_KEYWORDS:
         assert kw == kw.lower()
