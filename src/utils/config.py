@@ -22,23 +22,27 @@ class Config:
 
     # Keywords per source (comma-separated in env)
     VNW_KEYWORDS: list[str] = [
-        k.strip() for k in os.getenv("VNW_KEYWORDS", "Data Engineer,AI Engineer").split(",") if k.strip()
+        k.strip() for k in os.getenv(
+            "VNW_KEYWORDS",
+            "Data Engineer,AI Engineer,Business Analyst,Business Development,Technical Sales"
+        ).split(",") if k.strip()
     ]
     ITVIEC_KEYWORDS: list[str] = [
         k.strip() for k in os.getenv("ITVIEC_KEYWORDS", "data-engineer,ai-engineer,data-analyst").split(",") if k.strip()
     ]
 
     # VietnamWorks jobFunctionV3Id filter (comma-separated in env)
-    # 27 = "Data Engineer/Data Analyst/AI"
+    # 25 = "Business/System Analysis", 27 = "Data Engineer/Data Analyst/AI"
+    # 129 = "Sales/Business Development", 130 = "Sales Engineer/Technical Sales"
     ALLOWED_FUNCTION_IDS: set[int] = {
-        int(x) for x in os.getenv("ALLOWED_FUNCTION_IDS", "27").split(",") if x.strip()
+        int(x) for x in os.getenv("ALLOWED_FUNCTION_IDS", "25,27,129,130").split(",") if x.strip()
     }
 
     # Focus keywords for string-based job_function matching
     FOCUS_KEYWORDS: set[str] = {
         k.strip().lower() for k in os.getenv(
             "FOCUS_KEYWORDS",
-            "data engineer,data analyst,ai,machine learning,data science,data scientist,big data,analytics"
+            "data engineer,data analyst,ai,machine learning,data science,data scientist,big data,analytics,business development,business analyst,technical sales"
         ).split(",") if k.strip()
     }
 

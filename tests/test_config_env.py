@@ -39,7 +39,10 @@ def _restore_config():
 class TestVNWKeywords:
     def test_default(self):
         cfg = _reload_config({})
-        assert cfg.VNW_KEYWORDS == ["Data Engineer", "AI Engineer"]
+        assert cfg.VNW_KEYWORDS == [
+            "Data Engineer", "AI Engineer", "Business Analyst",
+            "Business Development", "Technical Sales",
+        ]
 
     def test_custom_single(self):
         cfg = _reload_config({"VNW_KEYWORDS": "Backend Developer"})
@@ -101,9 +104,9 @@ class TestITviecKeywords:
 # ===== ALLOWED_FUNCTION_IDS =====
 
 class TestAllowedFunctionIDs:
-    def test_default_contains_27(self):
+    def test_default_contains_all_ids(self):
         cfg = _reload_config({})
-        assert cfg.ALLOWED_FUNCTION_IDS == {27}
+        assert cfg.ALLOWED_FUNCTION_IDS == {25, 27, 129, 130}
 
     def test_custom_single(self):
         cfg = _reload_config({"ALLOWED_FUNCTION_IDS": "42"})
@@ -152,6 +155,7 @@ class TestFocusKeywords:
         expected = {
             "data engineer", "data analyst", "ai", "machine learning",
             "data science", "data scientist", "big data", "analytics",
+            "business development", "business analyst", "technical sales",
         }
         assert cfg.FOCUS_KEYWORDS == expected
 
@@ -287,7 +291,10 @@ class TestConfigConsistency:
     def test_docker_compose_defaults_match_config_defaults(self):
         """Defaults in config.py should match docker-compose.yml x-worker-env."""
         cfg = _reload_config({})
-        assert cfg.VNW_KEYWORDS == ["Data Engineer", "AI Engineer"]
+        assert cfg.VNW_KEYWORDS == [
+            "Data Engineer", "AI Engineer", "Business Analyst",
+            "Business Development", "Technical Sales",
+        ]
         assert cfg.ITVIEC_KEYWORDS == ["data-engineer", "ai-engineer", "data-analyst"]
-        assert 27 in cfg.ALLOWED_FUNCTION_IDS
+        assert cfg.ALLOWED_FUNCTION_IDS == {25, 27, 129, 130}
         assert "itviec" in cfg.SKIP_FOCUS_SOURCES

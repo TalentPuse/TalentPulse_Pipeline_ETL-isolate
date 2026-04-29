@@ -10,10 +10,10 @@ x-worker-env: &worker-env
   S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
   S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
   S3_BUCKET_NAME: ${S3_BUCKET_NAME:-talentpulse-raw}
-  VNW_KEYWORDS: ${VNW_KEYWORDS:-Data Engineer,AI Engineer}
+  VNW_KEYWORDS: ${VNW_KEYWORDS:-Data Engineer,AI Engineer,Business Analyst,Business Development,Technical Sales}
   ITVIEC_KEYWORDS: ${ITVIEC_KEYWORDS:-data-engineer,ai-engineer,data-analyst}
-  ALLOWED_FUNCTION_IDS: ${ALLOWED_FUNCTION_IDS:-27}
-  FOCUS_KEYWORDS: ${FOCUS_KEYWORDS:-data engineer,data analyst,ai,machine learning,data science,data scientist,big data,analytics}
+  ALLOWED_FUNCTION_IDS: ${ALLOWED_FUNCTION_IDS:-25,27,129,130}
+  FOCUS_KEYWORDS: ${FOCUS_KEYWORDS:-data engineer,data analyst,ai,machine learning,data science,data scientist,big data,analytics,business development,business analyst,technical sales}
   SKIP_FOCUS_SOURCES: ${SKIP_FOCUS_SOURCES:-itviec}
 
 x-worker-depends: &worker-depends
