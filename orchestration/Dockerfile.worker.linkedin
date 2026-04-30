@@ -1,0 +1,9 @@
+FROM prefecthq/prefect:2.16.5-python3.10
+WORKDIR /app
+COPY orchestration/base-requirements.txt orchestration/worker-requirements.txt ./
+RUN pip install --no-cache-dir -r worker-requirements.txt
+ENV PYTHONPATH=/app
+COPY src/ ./src/
+COPY orchestration/ ./orchestration/
+COPY dbt_transform/ ./dbt_transform/
+RUN cd dbt_transform && dbt deps --profiles-dir .

@@ -14,7 +14,10 @@ x-worker-env: &worker-env
   ITVIEC_KEYWORDS: ${ITVIEC_KEYWORDS:-data-engineer,ai-engineer,data-analyst}
   ALLOWED_FUNCTION_IDS: ${ALLOWED_FUNCTION_IDS:-25,27,129,130}
   FOCUS_KEYWORDS: ${FOCUS_KEYWORDS:-data engineer,data analyst,ai,machine learning,data science,data scientist,big data,analytics,business development,business analyst,technical sales}
-  SKIP_FOCUS_SOURCES: ${SKIP_FOCUS_SOURCES:-itviec}
+  LINKEDIN_KEYWORDS: ${LINKEDIN_KEYWORDS:-Data Engineer,Data Analyst,AI Engineer,Data Scientist,Business Analyst}
+  LINKEDIN_GEO_ID: ${LINKEDIN_GEO_ID:-104195383}
+  LINKEDIN_RATE_SECONDS: ${LINKEDIN_RATE_SECONDS:-3.0}
+  SKIP_FOCUS_SOURCES: ${SKIP_FOCUS_SOURCES:-itviec,linkedin}
 
 x-worker-depends: &worker-depends
   postgres:
@@ -153,6 +156,22 @@ services:
       resources:
         limits:
           memory: 1536M
+
+  linkedin-worker:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-talentpulse/pipeline_data}-linkedin:${IMAGE_TAG:-develop}
+    container_name: talentpulse-linkedin-worker
+    command: python -m orchestration.flows.linkedin_pipeline
+    environment:
+      <<: *worker-env
+    depends_on:
+      <<: *worker-depends
+    networks:
+      - talentpulse
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 768M
 
   telegram-bot:
     image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-talentpulse/pipeline_data}-telegram:${IMAGE_TAG:-develop}
