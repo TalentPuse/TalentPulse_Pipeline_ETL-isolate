@@ -193,9 +193,9 @@ class TestFocusKeywords:
 # ===== SKIP_FOCUS_SOURCES =====
 
 class TestSkipFocusSources:
-    def test_default_contains_itviec(self):
+    def test_default_contains_itviec_and_linkedin(self):
         cfg = _reload_config({})
-        assert cfg.SKIP_FOCUS_SOURCES == {"itviec"}
+        assert cfg.SKIP_FOCUS_SOURCES == {"itviec", "linkedin"}
 
     def test_custom_multiple(self):
         cfg = _reload_config({"SKIP_FOCUS_SOURCES": "itviec,topcv,linkedin"})
