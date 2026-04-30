@@ -1,8 +1,10 @@
 """Shared helpers for Prefect pipeline flows."""
 from __future__ import annotations
 
+import os
 import subprocess
 
+import requests
 from prefect import get_run_logger
 from prefect.artifacts import create_markdown_artifact
 
@@ -21,6 +23,26 @@ def counters_table(source: str, stage: str, counters: dict, duration: float) -> 
         f"{rows}\n"
         f"| Duration | {fmt_duration(duration)} |"
     )
+
+
+def dispatch_dashboard_alerts() -> dict:
+    """Call dashboard API to dispatch job alerts after fresh data is loaded."""
+    logger = get_run_logger()
+    url = os.getenv("DASHBOARD_API_URL", "http://tp-backend:8001")
+    secret = os.getenv("ALERT_DISPATCH_SECRET", "")
+    try:
+        resp = requests.post(
+            f"{url}/api/admin/alerts/dispatch-internal",
+            headers={"X-Webhook-Secret": secret},
+            timeout=120,
+        )
+        resp.raise_for_status()
+        result = resp.json()
+        logger.info(f"Dashboard alerts dispatched: {result}")
+        return result
+    except Exception as exc:
+        logger.warning(f"Alert dispatch failed (non-fatal): {exc}")
+        return {"dispatched": 0, "error": str(exc)}
 
 
 def run_dbt(dbt_dir: str = "/app/dbt_transform") -> str:
