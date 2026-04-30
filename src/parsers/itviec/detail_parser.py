@@ -18,6 +18,19 @@ class ITviecParseError(Exception):
     pass
 
 
+def _is_past(dt_str: str | None) -> bool:
+    """Return True if the ISO-8601 date/datetime is in the past."""
+    if not dt_str:
+        return False
+    try:
+        dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt < datetime.now(timezone.utc)
+    except (ValueError, TypeError):
+        return False
+
+
 def _extract_json_ld(html: str, target_type: str = "JobPosting") -> dict | None:
     """Find and parse a JSON-LD script block with the given @type."""
     for match in re.finditer(
@@ -125,6 +138,6 @@ class ITviecDetailParser(MinIOParser):
             job_requirement_text=None,
             posted_at=data.get("datePosted"),
             expired_at=data.get("validThrough"),
-            is_expired=False,
-            is_active=True,
+            is_expired=_is_past(data.get("validThrough")),
+            is_active=not _is_past(data.get("validThrough")),
         )
