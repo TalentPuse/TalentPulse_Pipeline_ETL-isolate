@@ -21,8 +21,7 @@ models:
         tests:
           - accepted_values:
               values: ['Intern/Student', 'Fresher/Entry level', 'Mid-level', 'Senior',
-                       'Manager', 'Director+', 'Director and above', 'C-Level',
-                       'Fresher/Entry level', 'Intern/Student']
+                       'Manager', 'Director+']
               config:
                 where: "job_level is not null"
       - name: job_category

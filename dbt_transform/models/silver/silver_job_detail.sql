@@ -80,7 +80,20 @@ joined as (
                 * coalesce(fx.vnd_rate, 1) * coalesce(spm.months_multiplier, 1))::numeric)
         end as salary_vnd_monthly_avg,
         coalesce(
-            nullif(nullif(nullif(r.job_level, ''), 'Not Applicable'), 'Experienced (non-manager)'),
+            case r.job_level
+                when 'Intern/Student'       then 'Intern/Student'
+                when 'Fresher/Entry level'  then 'Fresher/Entry level'
+                when 'Mid-level'            then 'Mid-level'
+                when 'Senior'               then 'Senior'
+                when 'Manager'              then 'Manager'
+                when 'Director+'            then 'Director+'
+                when 'Internship'           then 'Intern/Student'
+                when 'Entry level'          then 'Fresher/Entry level'
+                when 'Associate'            then 'Fresher/Entry level'
+                when 'Executive'            then 'Director+'
+                when 'Director'             then 'Director+'
+                when 'Director and above'   then 'Director+'
+            end,
             lr.title_job_level,
             case when r.job_level = 'Experienced (non-manager)' then 'Mid-level' end
         ) as job_level,
