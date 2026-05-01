@@ -95,7 +95,7 @@ joined as (
                 when 'Director and above'   then 'Director+'
             end,
             lr.title_job_level,
-            case when r.job_level = 'Experienced (non-manager)' then 'Mid-level' end
+            'Mid-level'
         ) as job_level,
         r.job_level                           as job_level_raw,
         r.years_of_experience,
