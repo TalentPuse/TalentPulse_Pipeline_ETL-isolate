@@ -57,9 +57,16 @@ class Config:
     LINKEDIN_RATE_SECONDS: float = float(os.getenv("LINKEDIN_RATE_SECONDS", "3.0"))
     LINKEDIN_PROXY_URL: str | None = os.getenv("LINKEDIN_PROXY_URL")
 
+    LINKEDIN_TITLE_KEYWORDS: set[str] = {
+        k.strip().lower() for k in os.getenv(
+            "LINKEDIN_TITLE_KEYWORDS",
+            os.getenv("LINKEDIN_KEYWORDS", "Data Engineer,Data Analyst,AI Engineer,Data Scientist,Business Analyst")
+        ).split(",") if k.strip()
+    }
+
     # Sources that skip focus validation entirely
     SKIP_FOCUS_SOURCES: set[str] = {
-        s.strip() for s in os.getenv("SKIP_FOCUS_SOURCES", "itviec,linkedin").split(",") if s.strip()
+        s.strip() for s in os.getenv("SKIP_FOCUS_SOURCES", "itviec").split(",") if s.strip()
     }
 
     LOCATIONS = ["Ho Chi Minh"]

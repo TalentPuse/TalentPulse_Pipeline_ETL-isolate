@@ -16,6 +16,37 @@ from src.utils.config import config
 ValidationResult = Optional[tuple[str, str]]
 
 
+VIETNAM_LOCATION_MARKERS = frozenset({
+    "vietnam", "ho chi minh", "hcmc", "hanoi", "ha noi", "hà nội",
+    "hồ chí minh", "da nang", "đà nẵng", "binh duong", "dong nai",
+    "can tho", "hai phong", "bac ninh", "hung yen", "long an",
+})
+
+
+def validate_title_keywords(payload: dict) -> ValidationResult:
+    """Reject if title doesn't contain any configured title keywords."""
+    title = (payload.get("title") or "").lower()
+    if not title:
+        return None
+    keywords = config.LINKEDIN_TITLE_KEYWORDS
+    if any(kw in title for kw in keywords):
+        return None
+    return ("OUT_OF_FOCUS", f"title='{payload.get('title')}' (no keyword match)")
+
+
+def validate_location_vietnam(payload: dict) -> ValidationResult:
+    """Reject if no location field contains a Vietnam marker."""
+    locations = payload.get("locations") or []
+    if not locations:
+        return None
+    for loc in locations:
+        city = (loc.get("city") or "").lower()
+        if any(marker in city for marker in VIETNAM_LOCATION_MARKERS):
+            return None
+    loc_str = ", ".join(loc.get("city", "") for loc in locations)
+    return ("OUT_OF_LOCATION", f"locations='{loc_str}' (not Vietnam)")
+
+
 def validate_focus(
     payload: dict, allowed_ids: set[int] | None = None
 ) -> ValidationResult:
@@ -83,10 +114,20 @@ def validate_business_rules(payload: dict) -> ValidationResult:
 def validate(
     payload: dict, allowed_ids: set[int] | None = None
 ) -> ValidationResult:
-    """Run all validators. Hard rules first, then focus filter."""
+    """Run all validators. Hard rules first, then source-specific filters."""
     result = validate_business_rules(payload)
     if result:
         return result
-    if payload.get("source") in config.SKIP_FOCUS_SOURCES:
+
+    source = payload.get("source")
+
+    if source == "linkedin":
+        result = validate_title_keywords(payload)
+        if result:
+            return result
+        return validate_location_vietnam(payload)
+
+    if source in config.SKIP_FOCUS_SOURCES:
         return None
+
     return validate_focus(payload, allowed_ids)

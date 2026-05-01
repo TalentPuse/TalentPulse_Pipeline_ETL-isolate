@@ -193,9 +193,9 @@ class TestFocusKeywords:
 # ===== SKIP_FOCUS_SOURCES =====
 
 class TestSkipFocusSources:
-    def test_default_contains_itviec_and_linkedin(self):
+    def test_default_contains_itviec(self):
         cfg = _reload_config({})
-        assert cfg.SKIP_FOCUS_SOURCES == {"itviec", "linkedin"}
+        assert cfg.SKIP_FOCUS_SOURCES == {"itviec"}
 
     def test_custom_multiple(self):
         cfg = _reload_config({"SKIP_FOCUS_SOURCES": "itviec,topcv,linkedin"})
@@ -298,3 +298,25 @@ class TestConfigConsistency:
         assert cfg.ITVIEC_KEYWORDS == ["data-engineer", "ai-engineer", "data-analyst"]
         assert cfg.ALLOWED_FUNCTION_IDS == {25, 27, 129, 130}
         assert "itviec" in cfg.SKIP_FOCUS_SOURCES
+
+
+# ===== LINKEDIN_TITLE_KEYWORDS =====
+
+class TestLinkedInTitleKeywords:
+    def test_default_matches_linkedin_keywords(self):
+        cfg = _reload_config({})
+        expected = {"data engineer", "data analyst", "ai engineer", "data scientist", "business analyst"}
+        assert cfg.LINKEDIN_TITLE_KEYWORDS == expected
+
+    def test_custom_override(self):
+        cfg = _reload_config({"LINKEDIN_TITLE_KEYWORDS": "ML Engineer,DevOps"})
+        assert cfg.LINKEDIN_TITLE_KEYWORDS == {"ml engineer", "devops"}
+
+    def test_fallback_to_linkedin_keywords(self):
+        cfg = _reload_config({"LINKEDIN_KEYWORDS": "Cloud Architect,SRE"})
+        assert cfg.LINKEDIN_TITLE_KEYWORDS == {"cloud architect", "sre"}
+
+    def test_all_lowercase(self):
+        cfg = _reload_config({})
+        for kw in cfg.LINKEDIN_TITLE_KEYWORDS:
+            assert kw == kw.lower()

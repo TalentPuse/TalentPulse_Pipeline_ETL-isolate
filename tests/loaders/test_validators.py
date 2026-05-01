@@ -4,6 +4,8 @@ from src.loaders.validators import (
     validate,
     validate_business_rules,
     validate_focus,
+    validate_title_keywords,
+    validate_location_vietnam,
 )
 from src.utils.config import config
 
@@ -332,3 +334,162 @@ def test_default_allowed_includes_27():
 def test_focus_keywords_are_lowercase():
     for kw in config.FOCUS_KEYWORDS:
         assert kw == kw.lower()
+
+
+# ===== validate_title_keywords (LinkedIn title filter) =====
+
+def _linkedin_payload(**overrides):
+    base = {
+        "source": "linkedin",
+        "source_job_id": "123",
+        "title": "Senior Data Engineer",
+        "company_name": "FPT Software",
+        "locations": [{"city": "Ho Chi Minh City, Vietnam"}],
+    }
+    base.update(overrides)
+    return base
+
+
+class TestValidateTitleKeywords:
+    def test_pass_exact_keyword(self):
+        p = _linkedin_payload(title="Data Engineer")
+        assert validate_title_keywords(p) is None
+
+    def test_pass_keyword_in_longer_title(self):
+        p = _linkedin_payload(title="Senior Data Engineer - Remote")
+        assert validate_title_keywords(p) is None
+
+    def test_pass_case_insensitive(self):
+        p = _linkedin_payload(title="SENIOR DATA ANALYST")
+        assert validate_title_keywords(p) is None
+
+    @pytest.mark.parametrize("title", [
+        "Data Engineer", "Data Analyst", "AI Engineer",
+        "Data Scientist", "Business Analyst",
+        "Junior Data Engineer", "Lead Data Scientist",
+        "Senior AI Engineer - NLP", "Staff Business Analyst",
+    ])
+    def test_pass_all_default_keywords(self, title):
+        p = _linkedin_payload(title=title)
+        assert validate_title_keywords(p) is None
+
+    @pytest.mark.parametrize("title", [
+        "Marketing Manager",
+        "HR Specialist",
+        "Graphic Designer",
+        "Customer Insights Specialist",
+        "Operations Lead",
+        "Software Developer",
+        "Sales Representative",
+    ])
+    def test_reject_unrelated_titles(self, title):
+        p = _linkedin_payload(title=title)
+        result = validate_title_keywords(p)
+        assert result is not None
+        assert result[0] == "OUT_OF_FOCUS"
+        assert title in result[1]
+
+    def test_pass_none_title_defers_to_missing_title(self):
+        p = _linkedin_payload(title=None)
+        assert validate_title_keywords(p) is None
+
+    def test_pass_empty_title_defers_to_missing_title(self):
+        p = _linkedin_payload(title="")
+        assert validate_title_keywords(p) is None
+
+
+# ===== validate_location_vietnam =====
+
+class TestValidateLocationVietnam:
+    def test_pass_hcmc_vietnam(self):
+        p = _linkedin_payload(locations=[{"city": "Ho Chi Minh City, Vietnam"}])
+        assert validate_location_vietnam(p) is None
+
+    def test_pass_hanoi_vietnam(self):
+        p = _linkedin_payload(locations=[{"city": "Hanoi, Vietnam"}])
+        assert validate_location_vietnam(p) is None
+
+    def test_pass_vietnam_only(self):
+        p = _linkedin_payload(locations=[{"city": "Vietnam"}])
+        assert validate_location_vietnam(p) is None
+
+    def test_pass_da_nang(self):
+        p = _linkedin_payload(locations=[{"city": "Da Nang"}])
+        assert validate_location_vietnam(p) is None
+
+    def test_pass_ho_chi_minh_no_country(self):
+        p = _linkedin_payload(locations=[{"city": "Ho Chi Minh"}])
+        assert validate_location_vietnam(p) is None
+
+    def test_pass_empty_locations_list(self):
+        p = _linkedin_payload(locations=[])
+        assert validate_location_vietnam(p) is None
+
+    def test_pass_no_locations_key(self):
+        p = _linkedin_payload()
+        del p["locations"]
+        assert validate_location_vietnam(p) is None
+
+    def test_reject_foreign_city(self):
+        p = _linkedin_payload(locations=[{"city": "Singapore"}])
+        result = validate_location_vietnam(p)
+        assert result is not None
+        assert result[0] == "OUT_OF_LOCATION"
+        assert "Singapore" in result[1]
+
+    def test_reject_us_city(self):
+        p = _linkedin_payload(locations=[{"city": "San Francisco, CA"}])
+        result = validate_location_vietnam(p)
+        assert result is not None
+        assert result[0] == "OUT_OF_LOCATION"
+
+    def test_pass_vietnamese_text(self):
+        p = _linkedin_payload(locations=[{"city": "Hồ Chí Minh"}])
+        assert validate_location_vietnam(p) is None
+
+
+# ===== validate (orchestrator) — LinkedIn path =====
+
+class TestValidateLinkedIn:
+    def test_linkedin_pass_valid_job(self):
+        assert validate(_linkedin_payload()) is None
+
+    def test_linkedin_reject_bad_title(self):
+        p = _linkedin_payload(title="Marketing Manager")
+        result = validate(p)
+        assert result is not None
+        assert result[0] == "OUT_OF_FOCUS"
+
+    def test_linkedin_reject_foreign_location(self):
+        p = _linkedin_payload(locations=[{"city": "Singapore"}])
+        result = validate(p)
+        assert result is not None
+        assert result[0] == "OUT_OF_LOCATION"
+
+    def test_linkedin_business_rules_checked_first(self):
+        p = _linkedin_payload(title=None)
+        result = validate(p)
+        assert result[0] == "MISSING_TITLE"
+
+    def test_linkedin_does_not_call_focus_filter(self):
+        p = _linkedin_payload(
+            job_function={"children": [{"id": 999, "name": "Random"}]}
+        )
+        assert validate(p) is None
+
+    def test_itviec_still_skips_focus(self):
+        p = {
+            "source": "itviec",
+            "title": "HR Manager",
+            "company_name": "ACME",
+            "job_function": {"children": [{"id": 999, "name": "HR"}]},
+        }
+        assert validate(p) is None
+
+    def test_vnw_still_uses_focus_filter(self):
+        p = _valid_de_payload(
+            job_function={"children": [{"id": 999, "name": "Other"}]}
+        )
+        result = validate(p)
+        assert result is not None
+        assert result[0] == "OUT_OF_FOCUS"
