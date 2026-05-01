@@ -62,15 +62,17 @@ LEVEL_ALIASES: dict[str, str] = {
     "student": "Intern/Student",
     "fresher": "Fresher/Entry level",
     "entry": "Fresher/Entry level",
-    "junior": "Experienced (non-manager)",
-    "experienced": "Experienced (non-manager)",
-    "senior": "Experienced (non-manager)",  # VNW data: senior often classified here
+    "junior": "Fresher/Entry level",
+    "mid": "Mid-level",
+    "middle": "Mid-level",
+    "senior": "Senior",
+    "experienced": "Senior",
     "lead": "Manager",
     "manager": "Manager",
-    "director": "Director",
-    "chief": "C-Level",
-    "cto": "C-Level",
-    "cio": "C-Level",
+    "director": "Director+",
+    "chief": "Director+",
+    "cto": "Director+",
+    "cio": "Director+",
 }
 
 # Numeric suffix multipliers

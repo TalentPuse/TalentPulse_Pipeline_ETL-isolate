@@ -16,6 +16,15 @@ models:
           - not_null:
               config:
                 where: "city_raw_en is not null"
+      - name: job_level
+        description: "Canonical job level, derived from title when raw is missing/unreliable."
+        tests:
+          - accepted_values:
+              values: ['Intern/Student', 'Fresher/Entry level', 'Mid-level', 'Senior',
+                       'Manager', 'Director+', 'Director and above', 'C-Level',
+                       'Fresher/Entry level', 'Intern/Student']
+              config:
+                where: "job_level is not null"
       - name: job_category
         description: "Coarse job category for website filtering. NULL = unmatched."
         tests:

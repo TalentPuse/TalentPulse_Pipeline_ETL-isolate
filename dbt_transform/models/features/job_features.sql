@@ -48,7 +48,7 @@ select
     coalesce(s.n_skills, 0)                           as n_skills,
 
     -- Job attributes
-    (j.job_level ilike any (array['%manager%', '%senior%', '%lead%', '%chief%']))
+    (j.job_level in ('Senior', 'Manager', 'Director+'))
                                                       as is_senior,
     (coalesce(j.employment_type, '') ilike '%remote%'
         or j.title ~* 'remote|wfh|work from home')    as is_remote,

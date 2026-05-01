@@ -1,0 +1,43 @@
+keyword,job_level,priority
+intern,Intern/Student,10
+internship,Intern/Student,10
+thực tập,Intern/Student,10
+thuc tap,Intern/Student,12
+student,Intern/Student,15
+apprentice,Intern/Student,15
+fresher,Fresher/Entry level,10
+fresh graduate,Fresher/Entry level,10
+fresh grad,Fresher/Entry level,12
+new grad,Fresher/Entry level,12
+entry level,Fresher/Entry level,15
+entry-level,Fresher/Entry level,15
+junior,Fresher/Entry level,20
+jr.,Fresher/Entry level,20
+mid-level,Mid-level,10
+mid level,Mid-level,10
+intermediate,Mid-level,15
+manager,Manager,8
+trưởng phòng,Manager,8
+truong phong,Manager,8
+trưởng nhóm,Manager,10
+truong nhom,Manager,10
+head of,Manager,12
+team lead,Manager,12
+senior,Senior,10
+sr.,Senior,10
+principal,Senior,15
+staff,Senior,15
+expert,Senior,15
+chuyên gia,Senior,15
+cvcc,Senior,15
+lead,Senior,25
+director,Director+,10
+giám đốc,Director+,10
+giam doc,Director+,12
+vice president,Director+,12
+vp,Director+,15
+chief,Director+,10
+cto,Director+,10
+cio,Director+,10
+cfo,Director+,10
+c-level,Director+,10

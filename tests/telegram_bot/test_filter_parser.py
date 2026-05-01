@@ -57,10 +57,13 @@ class TestLevelAliases:
             ("intern", "Intern/Student"),
             ("fresher", "Fresher/Entry level"),
             ("entry", "Fresher/Entry level"),
-            ("junior", "Experienced (non-manager)"),
-            ("senior", "Experienced (non-manager)"),
+            ("junior", "Fresher/Entry level"),
+            ("senior", "Senior"),
+            ("mid", "Mid-level"),
             ("manager", "Manager"),
             ("lead", "Manager"),
+            ("director", "Director+"),
+            ("cto", "Director+"),
         ],
     )
     def test_level_canonicalization(self, input, expected):
@@ -128,7 +131,7 @@ class TestCombined:
         r = parse_filter("python,sql,spark hcmc,hanoi senior 30m")
         assert set(r.skills) == {"python", "sql", "spark"}
         assert set(r.cities) == {"HCMC", "Hanoi"}
-        assert r.job_levels == ["Experienced (non-manager)"]
+        assert r.job_levels == ["Senior"]
         assert r.min_salary_vnd == 30_000_000
 
     def test_order_independent(self):
@@ -154,7 +157,7 @@ class TestEdgeCases:
         r = parse_filter("PYTHON HCMC SENIOR")
         assert r.skills == ["python"]
         assert r.cities == ["HCMC"]
-        assert r.job_levels == ["Experienced (non-manager)"]
+        assert r.job_levels == ["Senior"]
 
 
 class TestDescribe:
@@ -185,5 +188,5 @@ class TestToSubscriptionArgs:
         args = r.to_subscription_args()
         assert args["skills"] == ["python"]
         assert args["cities"] == ["HCMC"]
-        assert args["job_levels"] == ["Experienced (non-manager)"]
+        assert args["job_levels"] == ["Senior"]
         assert args["min_salary_vnd"] == 20_000_000

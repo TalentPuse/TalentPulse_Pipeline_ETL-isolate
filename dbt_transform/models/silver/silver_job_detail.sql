@@ -32,6 +32,20 @@ category_resolved as (
     from raw r
 ),
 
+level_resolved as (
+    select
+        r.source,
+        r.source_job_id,
+        (
+            select jlm.job_level
+            from {{ ref('job_level_map') }} jlm
+            where lower(r.title) like '%' || jlm.keyword || '%'
+            order by jlm.priority asc
+            limit 1
+        ) as title_job_level
+    from raw r
+),
+
 joined as (
     select
         r.source,
@@ -65,7 +79,12 @@ joined as (
             round((((r.salary_min + r.salary_max) / 2.0)
                 * coalesce(fx.vnd_rate, 1) * coalesce(spm.months_multiplier, 1))::numeric)
         end as salary_vnd_monthly_avg,
-        r.job_level,
+        coalesce(
+            nullif(nullif(nullif(r.job_level, ''), 'Not Applicable'), 'Experienced (non-manager)'),
+            lr.title_job_level,
+            case when r.job_level = 'Experienced (non-manager)' then 'Mid-level' end
+        ) as job_level,
+        r.job_level                           as job_level_raw,
         r.years_of_experience,
         r.employment_type,
         r.job_function,
@@ -124,6 +143,8 @@ joined as (
         on csm.company_size_id = r.company_size_id
     left join category_resolved cr
         on cr.source = r.source and cr.source_job_id = r.source_job_id
+    left join level_resolved lr
+        on lr.source = r.source and lr.source_job_id = r.source_job_id
 )
 
 select * from joined

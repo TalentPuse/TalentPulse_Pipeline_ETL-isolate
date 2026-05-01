@@ -20,9 +20,9 @@ select
     round(100.0 * count(distinct s.source_job_id) / total.total_jobs, 1) as pct_of_jobs,
     round(avg(j.salary_vnd_monthly_avg))                      as avg_salary_vnd,
     round(avg(j.salary_vnd_monthly_avg)
-          filter (where j.job_level ilike '%manager%'))       as avg_salary_manager_vnd,
+          filter (where j.job_level in ('Manager', 'Director+')))  as avg_salary_manager_vnd,
     round(avg(j.salary_vnd_monthly_avg)
-          filter (where j.job_level = 'Experienced (non-manager)')) as avg_salary_senior_vnd,
+          filter (where j.job_level = 'Senior'))                   as avg_salary_senior_vnd,
     round(avg(s.skill_weight), 1)                             as avg_weight,
     current_date                                              as snapshot_date
 from skills_long s
