@@ -3,12 +3,21 @@ data engineer,Data Engineer,10
 data architect,Data Engineer,15
 data governance,Data Engineer,20
 analytics engineer,Data Engineer,15
+etl developer,Data Engineer,25
+data pipeline,Data Engineer,25
+cv/cvcc ky thuat du lieu,Data Engineer,15
+ky thuat du lieu,Data Engineer,20
 data analyst,Data Analyst,10
 data analytics,Data Analyst,15
 reporting engineer,Data Analyst,20
 business intelligence,Data Analyst,20
 bi analyst,Data Analyst,20
+bi developer,Data Analyst,25
+phan tich nghiep vu,Data Analyst,15
 data manager,Data Management,10
+data management,Data Management,15
+quan tri du lieu,Data Management,15
+chuyen gia du lieu,Data Management,20
 sales analytics,Sales Operations,10
 demand analyst,Supply Chain Analyst,10
 ai engineer,AI Engineer,10
@@ -20,6 +29,13 @@ artificial intelligence,AI Engineer,15
 machine learning,AI Engineer,20
 ml engineer,AI Engineer,20
 agentic ai,AI Engineer,15
+ai researcher,AI Engineer,20
+deep learning,AI Engineer,25
+computer vision,AI Engineer,25
+thi giac may tinh,AI Engineer,25
+nlp,AI Engineer,25
+llm,AI Engineer,15
+prompt engineer,AI Engineer,25
 data science,Data Scientist,10
 data scientist,Data Scientist,10
 business analyst,Business Analyst,10
@@ -28,3 +44,115 @@ business development,Business Development,10
 technical sales,Technical Sales,10
 sales engineer,Technical Sales,20
 database administrator,Database Administrator,10
+backend developer,Backend Developer,10
+backend engineer,Backend Developer,10
+backend dev,Backend Developer,15
+java developer,Backend Developer,20
+golang,Backend Developer,20
+ruby,Backend Developer,25
+php developer,Backend Developer,20
+wordpress,Backend Developer,25
+shopify developer,Backend Developer,25
+frontend developer,Frontend Developer,10
+frontend engineer,Frontend Developer,10
+frontend dev,Frontend Developer,15
+react developer,Frontend Developer,15
+vue developer,Frontend Developer,20
+web developer,Frontend Developer,20
+html,Frontend Developer,25
+css,Frontend Developer,25
+figma,Frontend Developer,25
+fullstack developer,Fullstack Developer,10
+full-stack developer,Fullstack Developer,10
+full stack developer,Fullstack Developer,10
+fullstack engineer,Fullstack Developer,15
+full-stack engineer,Fullstack Developer,15
+devops engineer,DevOps Engineer,10
+devops,DevOps Engineer,15
+sre,DevOps Engineer,15
+site reliability,DevOps Engineer,20
+platform engineer,DevOps Engineer,20
+ci/cd,DevOps Engineer,25
+qa engineer,QA Engineer,10
+quality engineer,QA Engineer,10
+tester,QA Engineer,15
+qc engineer,QA Engineer,15
+test engineer,QA Engineer,15
+quality assurance,QA Engineer,10
+qa lead,QA Engineer,15
+automation test,QA Engineer,20
+cloud engineer,Cloud Engineer,10
+aws engineer,Cloud Engineer,15
+azure engineer,Cloud Engineer,15
+gcp engineer,Cloud Engineer,15
+mobile developer,Mobile Developer,10
+mobile engineer,Mobile Developer,10
+flutter,Mobile Developer,15
+ios developer,Mobile Developer,15
+android developer,Mobile Developer,15
+react native,Mobile Developer,20
+solution architect,Solution Architect,10
+kien truc su,Solution Architect,15
+kien truc giai phap,Solution Architect,15
+ux researcher,UX Designer,10
+ux designer,UX Designer,10
+ui/ux,UX Designer,15
+product designer,UX Designer,15
+it product designer,UX Designer,20
+sap consultant,ERP Consultant,10
+sap analytics,ERP Consultant,15
+erp consultant,ERP Consultant,15
+epicor,ERP Consultant,20
+sap pp,ERP Consultant,15
+project manager,Project Manager,10
+quan ly du an,Project Manager,15
+scrum master,Project Manager,20
+product manager,Product Manager,10
+product owner,Product Manager,15
+account executive,Account Manager,10
+account manager,Account Manager,10
+b2b sales,Sales Operations,10
+kinh doanh b2b,Sales Operations,15
+sales executive,Sales Operations,10
+sales representative,Sales Operations,15
+dai dien kinh doanh,Sales Operations,15
+dai dien ban hang,Sales Operations,20
+chuyen vien kinh doanh,Sales Operations,10
+chuyen vien ban hang,Sales Operations,15
+ban hang ky thuat,Sales Operations,15
+presale,Presales Engineer,10
+pre-sale,Presales Engineer,10
+technical presale,Presales Engineer,15
+channel development,Channel Sales,10
+channel sales,Channel Sales,15
+channel executive,Channel Sales,15
+bat dong san,Sales Operations,20
+real estate,Sales Operations,20
+mis developer,Backend Developer,25
+application engineer,Backend Developer,20
+business solutions developer,Backend Developer,20
+it developer,Backend Developer,25
+sales director,Sales Operations,15
+giam doc kinh doanh,Sales Operations,15
+sales manager,Sales Operations,15
+truong phong kinh doanh,Sales Operations,15
+giasat kinh doanh,Sales Operations,20
+sap mm,ERP Consultant,15
+sap b1,ERP Consultant,15
+sap consultant,ERP Consultant,10
+quan tri du lieu,Data Management,10
+chuyen gia du lieu,Data Management,15
+ky thuat du lieu,Data Engineer,10
+khoa hoc du lieu,Data Engineer,20
+data & analytics,Data Analyst,10
+data and analytics,Data Analyst,15
+data systems,Data Management,20
+pricing analysis,Data Analyst,20
+demand planning,Supply Chain Analyst,15
+sap mm consultant,ERP Consultant,10
+staff ai,AI Engineer,25
+ai enginner,AI Engineer,25
+nhan vien van hanh,Backend Developer,30
+application support,Backend Developer,25
+chuyen doi so,Data Management,25
+sap,ERP Consultant,10

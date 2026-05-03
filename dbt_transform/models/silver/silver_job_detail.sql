@@ -18,18 +18,43 @@ city_extract as (
     from raw
 ),
 
+vnw_category as (
+    select
+        source,
+        source_job_id,
+        case
+            when source = 'vietnamworks' and job_function is not null then
+                case
+                    when job_function::jsonb->'children'->0->>'name' = 'Sales/Business Development'
+                        then 'Business Development'
+                    when job_function::jsonb->'children'->0->>'name' = 'Sales Engineer/Technical Sales'
+                        then 'Technical Sales'
+                    when job_function::jsonb->'children'->0->>'name' = 'Business/System Analysis'
+                        then 'Business Analyst'
+                end
+            else null
+        end as source_category
+    from raw
+),
+
 category_resolved as (
     select
         r.source,
         r.source_job_id,
-        (
-            select tcm.job_category
-            from {{ ref('job_title_category_map') }} tcm
-            where lower(r.title) like '%' || tcm.keyword || '%'
-            order by tcm.priority asc
-            limit 1
+        coalesce(
+            vc.source_category,
+            (
+                select tcm.job_category
+                from {{ ref('job_title_category_map') }} tcm
+                where lower(r.title) like '%' || tcm.keyword || '%'
+                order by tcm.priority asc
+                limit 1
+            ),
+            'Other'
         ) as job_category
     from raw r
+    left join vnw_category vc
+        on vc.source = r.source and vc.source_job_id = r.source_job_id
 ),
 
 level_resolved as (

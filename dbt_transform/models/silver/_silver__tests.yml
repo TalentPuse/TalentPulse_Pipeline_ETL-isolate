@@ -24,15 +24,19 @@ models:
               values: ['Intern/Student', 'Fresher/Entry level', 'Mid-level', 'Senior',
                        'Manager', 'Director+']
       - name: job_category
-        description: "Coarse job category for website filtering. NULL = unmatched."
+        description: "Standardized job category from title keywords + source metadata. Never NULL — defaults to Other."
         tests:
+          - not_null
           - accepted_values:
-              values: ['Data Engineer', 'Data Analyst', 'AI Engineer', 'Data Scientist',
-                       'Business Analyst', 'Business Development', 'Technical Sales',
-                       'Database Administrator', 'Data Management', 'Sales Operations',
-                       'Supply Chain Analyst']
-              config:
-                where: "job_category is not null"
+              values: ['AI Engineer', 'Backend Developer', 'Frontend Developer',
+                       'Fullstack Developer', 'Data Engineer', 'Data Analyst',
+                       'Data Scientist', 'Data Management', 'Business Analyst',
+                       'QA Engineer', 'DevOps Engineer', 'Cloud Engineer',
+                       'Mobile Developer', 'Solution Architect', 'UX Designer',
+                       'Product Manager', 'Project Manager', 'ERP Consultant',
+                       'Technical Sales', 'Business Development', 'Sales Operations',
+                       'Account Manager', 'Channel Sales', 'Presales Engineer',
+                       'Database Administrator', 'Supply Chain Analyst', 'Other']
       - name: salary_vnd_monthly_avg
         description: "Avg of min/max in VND monthly. Sanity bounds: 1M to 5B/month."
         tests:

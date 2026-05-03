@@ -12,15 +12,19 @@ models:
       - name: snapshot_date
         tests: [not_null]
       - name: job_category
-        description: "Job category from title keyword matching."
+        description: "Standardized job category from title keywords + source metadata. Never NULL."
         tests:
+          - not_null
           - accepted_values:
-              values: ['Data Engineer', 'Data Analyst', 'AI Engineer', 'Data Scientist',
-                       'Business Analyst', 'Business Development', 'Technical Sales',
-                       'Database Administrator', 'Data Management', 'Sales Operations',
-                       'Supply Chain Analyst']
-              config:
-                where: "job_category is not null"
+              values: ['AI Engineer', 'Backend Developer', 'Frontend Developer',
+                       'Fullstack Developer', 'Data Engineer', 'Data Analyst',
+                       'Data Scientist', 'Data Management', 'Business Analyst',
+                       'QA Engineer', 'DevOps Engineer', 'Cloud Engineer',
+                       'Mobile Developer', 'Solution Architect', 'UX Designer',
+                       'Product Manager', 'Project Manager', 'ERP Consultant',
+                       'Technical Sales', 'Business Development', 'Sales Operations',
+                       'Account Manager', 'Channel Sales', 'Presales Engineer',
+                       'Database Administrator', 'Supply Chain Analyst', 'Other']
 
   - name: mart_skill_demand
     description: "Skill demand snapshot. Pct of jobs mentioning each skill + avg VND salary."
