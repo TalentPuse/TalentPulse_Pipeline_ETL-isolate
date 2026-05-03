@@ -19,6 +19,8 @@ x-worker-env: &worker-env
   LINKEDIN_GEO_ID: ${LINKEDIN_GEO_ID:-104195383}
   LINKEDIN_RATE_SECONDS: ${LINKEDIN_RATE_SECONDS:-3.0}
   SKIP_FOCUS_SOURCES: ${SKIP_FOCUS_SOURCES:-itviec}
+  DASHBOARD_API_URL: ${DASHBOARD_API_URL:-http://tp-backend:8001}
+  ALERT_DISPATCH_SECRET: ${ALERT_DISPATCH_SECRET:-dev-webhook-secret}
 
 x-worker-depends: &worker-depends
   postgres:
@@ -141,6 +143,22 @@ services:
       resources:
         limits:
           memory: 1G
+
+  alert-worker:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-talentpulse/pipeline_data}-worker:${IMAGE_TAG:-develop}
+    container_name: talentpulse-alert-worker
+    command: python -m orchestration.flows.alert_dispatch
+    environment:
+      <<: *worker-env
+    depends_on:
+      <<: *worker-depends
+    networks:
+      - talentpulse
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
   itviec-worker:
     image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-talentpulse/pipeline_data}-itviec:${IMAGE_TAG:-develop}
