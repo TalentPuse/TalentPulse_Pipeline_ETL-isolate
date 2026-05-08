@@ -17,6 +17,9 @@ import pytest
 
 from src.alerts.match import MATCH_SQL, Match, escape_html, format_message
 
+# Convert SQLAlchemy named param :lookback to asyncpg positional $1
+_ASYNCPG_SQL = str(MATCH_SQL).replace(":lookback", "$1")
+
 DB_URL = os.getenv(
     "DATABASE_URL",
     "postgresql://admin:password@localhost:5432/warehouse",
@@ -38,7 +41,7 @@ async def test_match_sql_runs_without_error(db):
     await db.execute(
         "DELETE FROM user_alerts.subscribers WHERE chat_id BETWEEN 900000 AND 999999"
     )
-    rows = await db.fetch(MATCH_SQL, 24)
+    rows = await db.fetch(_ASYNCPG_SQL, 24)
     # Pre-existing subs from other tests may exist, but schema is valid.
     assert isinstance(rows, list)
 
@@ -61,7 +64,7 @@ async def test_match_any_filter(db):
         )
 
         # Lookback 365 days to ensure we have some job matches regardless of freshness
-        rows = await db.fetch(MATCH_SQL, 24 * 365)
+        rows = await db.fetch(_ASYNCPG_SQL, 24 * 365)
         sub_matches = [r for r in rows if r["subscription_id"] == sub_id]
         # There should be >=1 active job in last year (we have 49 jobs from test data)
         assert len(sub_matches) >= 1
@@ -91,7 +94,7 @@ async def test_match_skill_filter(db):
             test_chat,
         )
 
-        rows = await db.fetch(MATCH_SQL, 24 * 365)
+        rows = await db.fetch(_ASYNCPG_SQL, 24 * 365)
         sub_matches = [r for r in rows if r["subscription_id"] == sub_id]
         # All matches must have 'python' in job_skills array
         for m in sub_matches:
@@ -123,7 +126,7 @@ async def test_match_dedup_via_alert_log(db):
         )
 
         # Get first match
-        rows = await db.fetch(MATCH_SQL, 24 * 365)
+        rows = await db.fetch(_ASYNCPG_SQL, 24 * 365)
         mine = [r for r in rows if r["subscription_id"] == sub_id]
         if not mine:
             pytest.skip("No jobs in silver layer to test dedup")
@@ -172,7 +175,7 @@ async def test_match_paused_excluded(db):
             test_chat,
         )
 
-        rows = await db.fetch(MATCH_SQL, 24 * 365)
+        rows = await db.fetch(_ASYNCPG_SQL, 24 * 365)
         mine = [r for r in rows if r["subscription_id"] == sub_id]
         assert mine == [], "Paused subscriber should not appear in matches"
     finally:
@@ -193,6 +196,7 @@ class TestFormatMessage:
             subscription_id=1,
             chat_id=123,
             sub_label="test",
+            source="vietnamworks",
             source_job_id="J1",
             title="Data Engineer",
             company_name=None,
@@ -212,6 +216,7 @@ class TestFormatMessage:
             subscription_id=1,
             chat_id=123,
             sub_label="Python HCMC",
+            source="itviec",
             source_job_id="J1",
             title="Senior DE <role>",  # tests escape
             company_name="Bosch",
@@ -229,3 +234,4 @@ class TestFormatMessage:
         assert "25.0M VND" in msg
         assert "python, sql, spark" in msg
         assert 'href="https://example.com/job/1"' in msg
+        assert "ITviec" in msg
