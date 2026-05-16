@@ -193,23 +193,6 @@ services:
         limits:
           memory: 768M
 
-  telegram-bot:
-    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-talentpulse/pipeline_data}-telegram:${IMAGE_TAG:-develop}
-    container_name: talentpulse-telegram-bot
-    environment:
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-admin}:${DB_PASSWORD_ENCODED:-password}@postgres:5432/${DB_NAME:-warehouse}"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-    networks:
-      - talentpulse
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-
 networks:
   talentpulse:
     name: talentpulse

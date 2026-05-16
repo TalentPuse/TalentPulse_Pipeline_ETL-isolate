@@ -54,8 +54,6 @@ jobs:
             dockerfile: orchestration/Dockerfile.worker.itviec
           - image_suffix: linkedin
             dockerfile: orchestration/Dockerfile.worker.linkedin
-          - image_suffix: telegram
-            dockerfile: docker/Dockerfile.telegram
 
     steps:
       - name: Checkout code
@@ -144,7 +142,7 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
           # Pull custom images
-          for suffix in worker itviec linkedin telegram; do
+          for suffix in worker itviec linkedin; do
             if ! docker pull ${REGISTRY}/${IMAGE_NAME}-${suffix}:${IMAGE_TAG}; then
               echo "Fallback to ${IMAGE_TAG_FALLBACK} for ${suffix}"
               export IMAGE_TAG=${IMAGE_TAG_FALLBACK}

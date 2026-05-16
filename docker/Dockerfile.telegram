@@ -1,7 +1,0 @@
-FROM python:3.10-slim
-WORKDIR /app
-COPY docker/telegram-requirements.txt .
-RUN pip install --no-cache-dir -r telegram-requirements.txt
-ENV PYTHONPATH=/app
-COPY src/ ./src/
-CMD ["python", "-m", "src.telegram_bot.bot"]
