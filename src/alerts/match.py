@@ -74,7 +74,9 @@ new_jobs AS (
         j.salary_vnd_monthly_avg,
         j.posted_at,
         j.source_url AS url,
-        COALESCE(s.skills, ARRAY[]::text[]) AS skills
+        COALESCE(s.skills, ARRAY[]::text[]) AS skills,
+        COALESCE(j.primary_address, j.primary_address_extracted) AS address,
+        j.city_raw_vi
     FROM dbt_dev_silver.silver_job_detail j
     LEFT JOIN job_skills s
         ON s.source = j.source AND s.source_job_id = j.source_job_id
@@ -94,7 +96,9 @@ SELECT
     j.salary_vnd_monthly_avg,
     j.posted_at,
     j.url,
-    j.skills            AS job_skills
+    j.skills            AS job_skills,
+    j.address,
+    j.city_raw_vi
 FROM user_alerts.subscriptions sub
 JOIN user_alerts.subscribers sb ON sb.chat_id = sub.chat_id
 CROSS JOIN new_jobs j
@@ -140,6 +144,8 @@ class Match:
     posted_at: object
     url: Optional[str]
     job_skills: list
+    address: Optional[str]
+    city_raw_vi: Optional[str]
 
 
 # ─── Source labels ──────────────────────────────────────────────────
@@ -170,8 +176,12 @@ def format_message(m: Match) -> str:
     if m.company_name:
         lines.append(f"🏢 {escape_html(m.company_name)}")
 
+    # Location: show address if available, otherwise city name (prefer Vietnamese)
+    location = m.address or m.city_raw_vi or m.city_canonical
     meta_parts = []
-    if m.city_canonical:
+    if location:
+        meta_parts.append(f"📍 {escape_html(location)}")
+    elif m.city_canonical:
         meta_parts.append(f"📍 {escape_html(m.city_canonical)}")
     if m.job_level:
         meta_parts.append(f"🎯 {escape_html(m.job_level)}")

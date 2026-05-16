@@ -206,6 +206,8 @@ class TestFormatMessage:
             posted_at=None,
             url=None,
             job_skills=[],
+            address=None,
+            city_raw_vi=None,
         )
         msg = format_message(m)
         assert "Data Engineer" in msg
@@ -226,11 +228,13 @@ class TestFormatMessage:
             posted_at=None,
             url="https://example.com/job/1",
             job_skills=["python", "sql", "spark"],
+            address="Tầng 10, Tòa nhà Viettel, 285 Cách Mạng Tháng 8",
+            city_raw_vi="Hồ Chí Minh",
         )
         msg = format_message(m)
         assert "Senior DE &lt;role&gt;" in msg  # HTML-escaped
         assert "Bosch" in msg
-        assert "HCMC" in msg
+        assert "285 Cách Mạng Tháng 8" in msg
         assert "25.0M VND" in msg
         assert "python, sql, spark" in msg
         assert 'href="https://example.com/job/1"' in msg

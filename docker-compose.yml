@@ -20,7 +20,8 @@ x-worker-env: &worker-env
   LINKEDIN_RATE_SECONDS: ${LINKEDIN_RATE_SECONDS:-3.0}
   SKIP_FOCUS_SOURCES: ${SKIP_FOCUS_SOURCES:-itviec}
   DASHBOARD_API_URL: ${DASHBOARD_API_URL:-http://tp-backend:8001}
-  ALERT_DISPATCH_SECRET: ${ALERT_DISPATCH_SECRET:-dev-webhook-secret}
+  ALERT_DISPATCH_SECRET: ${ALERT_DISPATCH_SECRET:-${TELEGRAM_WEBHOOK_SECRET:-dev-webhook-secret}}
+  TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-dev-webhook-secret}
 
 x-worker-depends: &worker-depends
   postgres:

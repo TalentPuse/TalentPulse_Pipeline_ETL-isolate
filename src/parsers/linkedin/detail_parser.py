@@ -84,6 +84,65 @@ def _parse_salary(html: str) -> str | None:
     return None
 
 
+def _parse_salary_structured(html: str) -> tuple[float | None, float | None, str | None, str | None]:
+    """Extract structured salary from LinkedIn display string.
+
+    Returns (salary_min, salary_max, currency, period) or (None, None, None, None).
+
+    Handles formats like:
+      "1,000,000 - 3,000,000 VND/month"
+      "₫1.000.000 - ₫3.000.000/tháng"
+      "$50 - $80/hr"
+    """
+    raw = _parse_salary(html)
+    if not raw:
+        return None, None, None, None
+
+    # Normalize: remove currency symbols, standardize separators
+    cleaned = raw.strip()
+    currency = None
+    period = None
+
+    # Detect currency
+    if "VND" in cleaned.upper() or "₫" in cleaned:
+        currency = "VND"
+    elif "USD" in cleaned or "$" in cleaned:
+        currency = "USD"
+
+    # Detect period
+    if "/year" in cleaned.lower() or "/yr" in cleaned.lower() or "năm" in cleaned.lower():
+        period = "yearly"
+    elif "/hr" in cleaned.lower() or "/hour" in cleaned.lower() or "giờ" in cleaned.lower():
+        period = "hourly"
+    else:
+        period = "monthly"  # default assumption
+
+    # Remove currency symbols and text, keep numbers and separators
+    cleaned = re.sub(r'[Vv][Nn][Dd]|[Uu][Ss][Dd]|/month|/year|/yr|/hr|/hour|/tháng|/năm|/giờ|month|year', '', cleaned)
+    cleaned = cleaned.replace('₫', '').replace('$', '').replace('-', ' ').replace('–', ' ')
+
+    # Extract numbers — handle both comma-separated (1,000,000) and dot-separated (1.000.000)
+    nums = re.findall(r'\d{1,3}(?:[.,]\d{3})+|\d+', cleaned)
+    parsed = []
+    for n in nums:
+        n = n.strip().replace(' ', '')
+        if not n:
+            continue
+        # Remove thousand separators (comma or dot between digits)
+        n = re.sub(r'(?<=\d)[.,](?=\d{3})', '', n)
+        try:
+            parsed.append(float(n))
+        except ValueError:
+            continue
+
+    if len(parsed) >= 2:
+        return parsed[0], parsed[-1], currency, period
+    elif len(parsed) == 1:
+        return parsed[0], parsed[0], currency, period
+
+    return None, None, currency, period
+
+
 def _parse_company_logo(html: str) -> str | None:
     m = re.search(r'artdeco-entity-image[^>]*(?:data-ghost-url|src)="([^"]+)"', html)
     return m.group(1) if m else None
@@ -109,6 +168,18 @@ class LinkedInDetailParser(MinIOParser):
         desc_match = re.search(r'show-more-less-html__markup[^>]*>(.*?)</div>', html, re.DOTALL)
         description = strip_html(desc_match.group(1)) if desc_match else None
 
+        sal_min, sal_max, sal_currency, sal_period = _parse_salary_structured(html)
+        is_salary_visible = sal_min is not None or sal_max is not None
+
+        # Map period to salary_period_id (matching salary_period_map seed)
+        salary_period_id = None
+        if sal_period == "hourly":
+            salary_period_id = 2
+        elif sal_period == "yearly":
+            salary_period_id = 3
+        elif sal_period == "monthly":
+            salary_period_id = 1
+
         return JobDetail(
             source="linkedin",
             source_job_id=source_job_id or "",
@@ -118,6 +189,11 @@ class LinkedInDetailParser(MinIOParser):
             title=title,
             company_name=company,
             company_logo_url=_parse_company_logo(html),
+            salary_min=sal_min,
+            salary_max=sal_max,
+            salary_currency=sal_currency,
+            is_salary_visible=is_salary_visible,
+            salary_period_id=salary_period_id,
             job_level=criteria[0] if len(criteria) > 0 else None,
             employment_type=criteria[1] if len(criteria) > 1 else None,
             job_function=criteria[2] if len(criteria) > 2 else None,

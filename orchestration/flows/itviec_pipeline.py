@@ -9,7 +9,7 @@ import time
 from prefect import flow, get_run_logger, task
 from prefect.artifacts import create_markdown_artifact
 
-from orchestration.flows._shared import counters_table, dispatch_dashboard_alerts, fmt_duration, run_dbt
+from orchestration.flows._shared import counters_table, dispatch_dashboard_alerts, fmt_duration, run_dbt, run_normalizer
 from src.utils.config import config
 from src.crawlers.browser import StealthBrowser
 from src.crawlers.itviec.detail import ITviecDetailCrawler
@@ -107,6 +107,11 @@ def dbt_transform() -> str:
     return run_dbt()
 
 
+@task(name="itviec_normalize", retries=1, timeout_seconds=600)
+def normalize() -> str:
+    return run_normalizer()
+
+
 @task(name="itviec_dispatch_alerts", retries=1, timeout_seconds=180)
 def dispatch_alerts() -> dict:
     return dispatch_dashboard_alerts()
@@ -127,6 +132,7 @@ def itviec_pipeline(
     crawl_result = detail_crawl(max_jobs=detail_max_jobs)
     parse_result = detail_parse(force=force_reparse)
     load_result = load_warehouse()
+    norm_result = normalize()
     dbt_result = dbt_transform()
     alert_result = dispatch_alerts()
 
@@ -139,6 +145,7 @@ def itviec_pipeline(
         f"| Detail Crawl | {crawl_result.get('success', 0)} success, {crawl_result.get('failed', 0)} failed |\n"
         f"| Parse | {parse_result.get('success', 0)} success, {parse_result.get('failed', 0)} failed |\n"
         f"| Load | {load_result.get('loaded', 0)} loaded, {load_result.get('rejected', 0)} rejected |\n"
+        f"| Normalize | {norm_result} |\n"
         f"| dbt | {dbt_result} |\n"
         f"| Alerts | {alert_result.get('dispatched', 0)} dispatched |\n"
         f"| **Total Duration** | **{total_dur}** |"
@@ -154,6 +161,7 @@ def itviec_pipeline(
         "crawl": crawl_result,
         "parse": parse_result,
         "load": load_result,
+        "normalize": norm_result,
         "dbt": dbt_result,
         "alerts": alert_result,
     }

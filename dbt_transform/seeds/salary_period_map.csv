@@ -1,5 +1,5 @@
 salary_period_id,period_label,months_multiplier
 0,Unknown,1
 1,Monthly,1
-2,Hourly,176
-3,Yearly,0.0833333
+2,Hourly,172
+3,Yearly,0.0833333333333333

@@ -7,6 +7,18 @@ with raw as (
     select * from {{ ref('stg_job_detail') }}
 ),
 
+-- Normalization engine results (coalesced with legacy logic below)
+norm as (
+    select distinct on (source, source_job_id)
+        source as norm_source,
+        source_job_id as norm_source_job_id,
+        job_category as norm_job_category,
+        category_method,
+        category_confidence
+    from normalization.job_normalization
+    order by source, source_job_id, run_at desc
+),
+
 city_extract as (
     select
         source,
@@ -147,7 +159,7 @@ joined as (
         r.working_to_hour,
         r.highest_degree_id,
         dm.degree_label,
-        cr.job_category,
+        coalesce(n.norm_job_category, cr.job_category) as job_category,
         r.language_selected,
         r.language_selected_vi,
         r.range_age,
@@ -183,6 +195,8 @@ joined as (
         on cr.source = r.source and cr.source_job_id = r.source_job_id
     left join level_resolved lr
         on lr.source = r.source and lr.source_job_id = r.source_job_id
+    left join norm n
+        on n.norm_source = r.source and n.norm_source_job_id = r.source_job_id
 )
 
 select * from joined

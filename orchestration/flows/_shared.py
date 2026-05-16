@@ -29,7 +29,7 @@ def dispatch_dashboard_alerts() -> dict:
     """Call dashboard API to dispatch job alerts after fresh data is loaded."""
     logger = get_run_logger()
     url = os.getenv("DASHBOARD_API_URL", "http://tp-backend:8001")
-    secret = os.getenv("ALERT_DISPATCH_SECRET", "")
+    secret = os.getenv("ALERT_DISPATCH_SECRET") or os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
     try:
         resp = requests.post(
             f"{url}/api/admin/alerts/dispatch-internal",
@@ -38,11 +38,23 @@ def dispatch_dashboard_alerts() -> dict:
         )
         resp.raise_for_status()
         result = resp.json()
-        logger.info(f"Dashboard alerts dispatched: {result}")
+        dispatched = result.get("dispatched", 0)
+        logger.info(f"Dashboard alerts dispatched: {dispatched} jobs")
         return result
-    except Exception as exc:
-        logger.warning(f"Alert dispatch failed (non-fatal): {exc}")
+    except requests.exceptions.HTTPError as exc:
+        logger.error(f"Alert dispatch HTTP error: {exc.response.status_code} — {exc.response.text[:200]}")
         return {"dispatched": 0, "error": str(exc)}
+    except Exception as exc:
+        logger.error(f"Alert dispatch failed: {exc}")
+        return {"dispatched": 0, "error": str(exc)}
+
+
+def run_normalizer() -> str:
+    """Run normalization engine between load and dbt."""
+    from src.normalizer.runner import NormalizerRunner
+    runner = NormalizerRunner()
+    result = runner.run()
+    return f"normalized {result['normalized']} jobs, {result['drift']} drift items, {result['errors']} errors"
 
 
 def run_dbt(dbt_dir: str = "/app/dbt_transform") -> str:

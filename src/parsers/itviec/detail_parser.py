@@ -108,10 +108,25 @@ class ITviecDetailParser(MinIOParser):
         exp_req = data.get("experienceRequirements")
 
         salary_display = None
+        salary_min = None
+        salary_max = None
+        is_salary_visible = False
+
         if isinstance(salary_val, dict):
             raw_val = salary_val.get("value")
             if raw_val and isinstance(raw_val, str) and raw_val not in ("You'll love it",):
                 salary_display = raw_val
+
+            # Extract structured min/max from JSON-LD QuantitativeValue
+            mv = salary_val.get("minValue")
+            xv = salary_val.get("maxValue")
+            if mv is not None or xv is not None:
+                try:
+                    salary_min = float(mv) if mv is not None else None
+                    salary_max = float(xv) if xv is not None else None
+                    is_salary_visible = salary_min is not None or salary_max is not None
+                except (ValueError, TypeError):
+                    pass
 
         return JobDetail(
             source="itviec",
@@ -125,8 +140,10 @@ class ITviecDetailParser(MinIOParser):
             company_name=org.get("name") if isinstance(org, dict) else None,
             company_logo_url=org.get("logo") if isinstance(org, dict) else None,
             company_profile_text=org.get("description") if isinstance(org, dict) else None,
+            salary_min=salary_min,
+            salary_max=salary_max,
             salary_currency=salary.get("currency"),
-            is_salary_visible=False,
+            is_salary_visible=is_salary_visible,
             pretty_salary=salary_display,
             years_of_experience=_parse_experience(exp_req),
             employment_type=data.get("employmentType"),

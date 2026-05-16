@@ -1,0 +1,192 @@
+"""Normalization runner — orchestrates all matchers, reads raw data, writes results.
+
+Usage:
+    from src.normalizer.runner import NormalizerRunner
+    runner = NormalizerRunner()
+    result = runner.run()
+"""
+from __future__ import annotations
+
+import json
+import logging
+import uuid
+from datetime import datetime, timezone
+
+import psycopg2
+from psycopg2.extras import Json, RealDictCursor
+
+from src.normalizer.matchers.category import match_category
+from src.normalizer.models import DriftEntry, NormResult
+from src.storage.db import pg_connection
+from src.utils.config import config
+
+logger = logging.getLogger(__name__)
+
+
+class NormalizerRunner:
+    """Read raw.job_detail, normalize, write to normalization.job_normalization."""
+
+    def __init__(self, dsn: str | None = None):
+        self.dsn = dsn or config.get_db_uri()
+
+    # ─── Rule loaders ─────────────────────────────────────────────
+
+    def _load_category_rules(self, conn) -> list[dict]:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT pattern, job_category, priority, match_mode, is_active "
+                "FROM normalization.category_rule WHERE is_active = true "
+                "ORDER BY priority ASC"
+            )
+            return [dict(r) for r in cur.fetchall()]
+
+    # ─── Main run ─────────────────────────────────────────────────
+
+    def run(self, since: datetime | None = None) -> dict:
+        """Run normalization on all rows (or rows loaded after `since`).
+
+        Returns counters: normalized, drift, errors.
+        """
+        run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:6]
+        counters = {"normalized": 0, "drift": 0, "errors": 0}
+
+        conn = psycopg2.connect(self.dsn)
+        try:
+            category_rules = self._load_category_rules(conn)
+            logger.info(f"Loaded {len(category_rules)} category rules")
+
+            # Fetch raw rows
+            rows = self._fetch_raw_rows(conn, since)
+            logger.info(f"Processing {len(rows)} raw rows (run_id={run_id})")
+
+            results: list[NormResult] = []
+            drift_entries: list[DriftEntry] = []
+
+            for row in rows:
+                try:
+                    result = self._normalize_one(row, category_rules)
+                    results.append(result)
+
+                    # Drift detection for category
+                    if result.category_method == "default":
+                        drift_entries.append(DriftEntry(
+                            dimension="category",
+                            raw_value=row.get("title", "")[:200],
+                            source=row["source"],
+                        ))
+                except Exception as e:
+                    logger.error(f"Error normalizing {row['source']}/{row['source_job_id']}: {e}")
+                    counters["errors"] += 1
+
+            # Write results
+            self._write_results(conn, results, run_id)
+            self._write_drift(conn, drift_entries, run_id)
+            conn.commit()
+
+            counters["normalized"] = len(results)
+            counters["drift"] = len(drift_entries)
+            logger.info(f"Normalization run {run_id} done: {counters}")
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+        return counters
+
+    def _fetch_raw_rows(self, conn, since: datetime | None = None) -> list[dict]:
+        """Fetch raw job_detail rows for normalization."""
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            sql = """
+                SELECT source, source_job_id, title, job_level, job_function,
+                       years_of_experience, locations, skills
+                FROM raw.job_detail
+            """
+            params = []
+            if since:
+                sql += " WHERE loaded_at >= %s"
+                params.append(since)
+            sql += " ORDER BY loaded_at"
+            cur.execute(sql, params)
+            return [dict(r) for r in cur.fetchall()]
+
+    def _normalize_one(self, row: dict, category_rules: list[dict]) -> NormResult:
+        """Apply all matchers to a single row."""
+        title = row.get("title") or ""
+        source = row["source"]
+        source_job_id = row["source_job_id"]
+
+        # Parse job_function from JSON if needed
+        job_function = row.get("job_function")
+        if isinstance(job_function, str):
+            try:
+                job_function = json.loads(job_function)
+            except (json.JSONDecodeError, ValueError):
+                job_function = None
+
+        # Category
+        cat = match_category(title, source, job_function, category_rules)
+
+        return NormResult(
+            source=source,
+            source_job_id=source_job_id,
+            job_category=cat.value,
+            category_method=cat.method,
+            category_confidence=cat.confidence,
+            category_matched_on=cat.matched_on,
+        )
+
+    def _write_results(self, conn, results: list[NormResult], run_id: str) -> None:
+        """Batch write normalization results."""
+        if not results:
+            return
+        with conn.cursor() as cur:
+            for r in results:
+                cur.execute(
+                    """
+                    INSERT INTO normalization.job_normalization
+                        (source, source_job_id, run_id,
+                         job_category, category_method, category_confidence, category_matched_on)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        r.source, r.source_job_id, run_id,
+                        r.job_category, r.category_method, r.category_confidence,
+                        r.category_matched_on,
+                    ),
+                )
+
+    def _write_drift(self, conn, entries: list[DriftEntry], run_id: str) -> None:
+        """Upsert drift log entries."""
+        if not entries:
+            return
+        with conn.cursor() as cur:
+            for d in entries:
+                cur.execute(
+                    """
+                    INSERT INTO normalization.drift_log
+                        (run_id, dimension, raw_value, source, frequency, first_seen_at, last_seen_at)
+                    VALUES (%s, %s, %s, %s, 1, now(), now())
+                    ON CONFLICT (dimension, raw_value, source) DO UPDATE SET
+                        frequency = drift_log.frequency + 1,
+                        last_seen_at = now(),
+                        status = CASE
+                            WHEN drift_log.status = 'resolved' THEN 'regression'
+                            ELSE drift_log.status
+                        END,
+                        run_id = EXCLUDED.run_id
+                    """,
+                    (run_id, d.dimension, d.raw_value, d.source),
+                )
+
+
+def main() -> None:
+    """CLI entry point for standalone normalization run."""
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
+    runner = NormalizerRunner()
+    result = runner.run()
+    print(f"Result: {result}")
+
+
+if __name__ == "__main__":
+    main()
