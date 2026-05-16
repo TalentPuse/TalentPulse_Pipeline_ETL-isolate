@@ -39,7 +39,7 @@ graph TB
 
     subgraph Serving
         MB["Metabase<br/>(Dashboard)"]
-        TG["Telegram Bot<br/>(Alerts)"]
+        TG["Dashboard API<br/>(Alerts via Telegram)"]
     end
 
     subgraph Orchestration
@@ -99,7 +99,7 @@ flowchart LR
 | 4 | **detail_parse** | MinIO raw HTML files | MinIO `parsed/details/*.json` | Parse HTML → JSON (JobDetail schema ~50 fields) |
 | 5 | **load_warehouse** | MinIO parsed JSON | `raw.job_detail` table | Validate + UPSERT vào PostgreSQL |
 | 6 | **dbt_transform** | `raw.job_detail` | bronze/silver/gold tables | Normalize salary, join lookups, build marts |
-| 7 | **dispatch_alerts** | silver layer + subscriptions | Telegram messages | Match jobs mới với user subscriptions, gửi alert |
+| 7 | **dispatch_alerts** | silver layer + dashboard API | Telegram messages | Call dashboard API to match jobs with user profiles and send alerts |
 
 ---
 
@@ -248,36 +248,8 @@ erDiagram
         timestamptz rejected_at
     }
 
-    user_alerts_subscribers {
-        bigint chat_id PK
-        varchar username
-        timestamptz paused_until
-        varchar locale
-    }
-
-    user_alerts_subscriptions {
-        serial id PK
-        bigint chat_id FK
-        varchar label
-        text[] skills
-        text[] cities
-        text[] job_levels
-        bigint min_salary_vnd
-        boolean active
-    }
-
-    user_alerts_alert_log {
-        bigserial id PK
-        int subscription_id FK
-        varchar source_job_id
-        bigint chat_id
-        varchar delivery_status
-    }
-
     raw_crawl_log ||--o{ raw_job_detail : "job_id → source_job_id"
     raw_job_detail ||--o{ raw_job_detail_rejects : "rejected rows"
-    user_alerts_subscribers ||--o{ user_alerts_subscriptions : "chat_id"
-    user_alerts_subscriptions ||--o{ user_alerts_alert_log : "subscription_id"
 ```
 
 ---
@@ -532,45 +504,44 @@ dbt run --select fct_jobs_daily --full-refresh  # Full refresh fact table
 
 ## Alert System
 
+Alerts are handled by the **Dashboard Backend API**, not by the pipeline itself.
+
+The pipeline's only responsibility is to call the dashboard API after data is fresh:
+
 ```mermaid
 sequenceDiagram
-    participant U as User (Telegram)
-    participant Bot as Telegram Bot
+    participant Pipe as Pipeline (Prefect)
+    participant API as Dashboard Backend
     participant DB as PostgreSQL
-    participant Pipe as Pipeline (dispatch_alerts)
+    participant TG as Telegram API
+    participant Web as Web UI
 
-    U->>Bot: /add python 20m senior
-    Bot->>DB: INSERT subscription<br/>(skills=['python'], min_salary=20M, levels=['senior'])
-    Bot->>U: Subscription created
+    Note over Pipe: Pipeline step 7 runs after dbt build
+    Pipe->>API: POST /api/admin/alerts/dispatch-internal
+    API->>DB: Query active users + match jobs (JobMatcher)
+    DB-->>API: Matched jobs per user
 
-    Note over Pipe: Pipeline step 7 runs daily
-    Pipe->>DB: MATCH SQL: subscriptions × silver_job_detail<br/>(posted last 24h, dedup via alert_log)
-    DB-->>Pipe: matched (subscription_id, job) pairs
-    
-    loop Each match
-        Pipe->>U: Send job alert via Telegram
-        Pipe->>DB: INSERT alert_log (delivery_status=sent)
+    loop Each user
+        API->>DB: INSERT app.alert_logs (channel=website)
+        opt Telegram linked
+            API->>TG: sendMessage (job alert)
+            API->>DB: INSERT app.alert_logs (channel=telegram)
+        end
     end
+
+    API-->>Pipe: { dispatched: N }
+    Web->>API: GET /api/jobs/my-alerts
+    API->>DB: SELECT DISTINCT ON (source_job_id) FROM app.alert_logs
+    DB-->>Web: Deduplicated alert history
 ```
 
-### Telegram Bot Commands
+### Key points
 
-| Command | Mô tả |
-|---------|-------|
-| `/start [token]` | Register + optional dashboard link binding |
-| `/add <filter>` | Add subscription (e.g. `/add python 20m senior`) |
-| `/list` | Show active subscriptions |
-| `/delete <id>` | Delete subscription |
-| `/pause [days]` | Pause alerts (default 7 days) |
-| `/resume` | Resume alerts |
-| `/stop` | Unsubscribe all |
-
-### Match Logic
-
-- Lookback: `LOOKBACK_HOURS` (default 24h) — chỉ match jobs posted gần đây
-- Dedup: `NOT EXISTS` check `alert_log` — không gửi lại job đã gửi
-- Rate limit: 1.1s between sends to same `chat_id`, max 50 alerts/user/run
-- Paused users (`paused_until > now()`) tự động bị skip
+- Pipeline flows call `dispatch_dashboard_alerts()` in `_shared.py` which POSTs to the dashboard API
+- Dashboard backend runs its own background alert loop (slot-based, 7:30-21:30 VN time)
+- Matching uses `JobMatcher` with scoring: title 40%, city 25%, salary 20%, skills 15%
+- Dedup via `app.alert_logs` with unique constraint `(user_id, source_job_id, channel)`
+- Users manage preferences via web UI (/profile), Telegram linking via deep link
 
 ---
 
@@ -587,7 +558,7 @@ graph TB
         VNW_W["prefect-worker<br/>(VNW pipeline)<br/>1GB RAM"]
         ITV_W["itviec-worker<br/>(ITviec pipeline)<br/>1.5GB RAM"]
         LKD_W["linkedin-worker<br/>(LinkedIn pipeline)<br/>768MB RAM"]
-        TG_BOT["telegram-bot<br/>256MB RAM"]
+        ALERT_W["alert-worker<br/>(dispatch flow)<br/>256MB RAM"]
     end
 
     VNW_W --> PG
@@ -599,7 +570,8 @@ graph TB
     LKD_W --> PG
     LKD_W --> MINIO
     LKD_W --> PREFECT
-    TG_BOT --> PG
+    ALERT_W --> PG
+    ALERT_W --> PREFECT
     MB --> PG
     PREFECT --> PG
 ```
@@ -611,7 +583,7 @@ graph TB
 | `prefect-worker` (VNW) | `prefecthq/prefect:2.16.5-python3.10` | ~500MB | pip only |
 | `itviec-worker` | `mcr.microsoft.com/playwright/python:jammy` | ~1.5GB | Playwright + Chromium |
 | `linkedin-worker` | `prefecthq/prefect:2.16.5-python3.10` | ~500MB | pip only (no browser) |
-| `telegram-bot` | `python:3.10-slim` | ~200MB | Minimal |
+| `alert-worker` | `prefecthq/prefect:2.16.5-python3.10` | ~500MB | Calls dashboard API |
 
 ### Persistent Volumes
 
@@ -628,7 +600,7 @@ PostgreSQL init scripts chạy theo thứ tự alphabetical khi container tạo 
 ```
 01-create-databases.sql  → CREATE DATABASE metabase_app, prefect
 02-raw-schema.sql        → CREATE SCHEMA raw + 3 tables (crawl_log, job_detail, job_detail_rejects)
-03-user-alerts.sql       → CREATE SCHEMA user_alerts + 4 tables (subscribers, pending_links, subscriptions, alert_log)
+04-normalization-schema.sql → CREATE SCHEMA normalization + normalization tables
 ```
 
 ---
@@ -638,13 +610,12 @@ PostgreSQL init scripts chạy theo thứ tự alphabetical khi container tạo 
 ```mermaid
 flowchart LR
     PUSH["Push to develop"] --> TEST["Run Tests<br/>(pytest)"]
-    TEST --> BUILD["Build & Push<br/>4 Docker Images"]
+    TEST --> BUILD["Build & Push<br/>3 Docker Images"]
     BUILD --> DEPLOY["Deploy to Server<br/>(self-hosted runner)"]
 
     BUILD --> B1["worker image"]
     BUILD --> B2["itviec image"]
     BUILD --> B3["linkedin image"]
-    BUILD --> B4["telegram image"]
 
     DEPLOY --> D1["docker pull images"]
     DEPLOY --> D2["docker compose up -d"]
@@ -703,11 +674,11 @@ pipeline_data/
 │   │   ├── crawl_log.py            # Work queue ORM
 │   │   ├── job_detail_repo.py      # UPSERT + rejects ORM
 │   │   └── minio_client.py         # boto3 S3 wrapper
-│   ├── alerts/
-│   │   └── match.py                # SQL match + Telegram dispatch
-│   ├── telegram_bot/
-│   │   ├── bot.py                  # Telegram bot (python-telegram-bot v21)
-│   │   └── filter_parser.py        # /add command parser
+│   ├── normalizer/
+│   │   ├── runner.py               # Normalization engine runner
+│   │   ├── models.py               # Normalization data models
+│   │   └── matchers/
+│   │       └── category.py         # Job category normalization
 │   └── utils/
 │       ├── config.py               # Centralized env config
 │       ├── circuit_breaker.py      # Window-based circuit breaker
@@ -743,13 +714,12 @@ pipeline_data/
 │   ├── Dockerfile.worker.itviec    # ITviec worker image (Playwright)
 │   └── Dockerfile.worker.linkedin  # LinkedIn worker image
 ├── docker/
-│   ├── init-db/
-│   │   ├── 01-create-databases.sql
-│   │   ├── 02-raw-schema.sql
-│   │   └── 03-user-alerts.sql
-│   └── Dockerfile.telegram
+│   └── init-db/
+│       ├── 01-create-databases.sql
+│       ├── 02-raw-schema.sql
+│       └── 04-normalization-schema.sql
 ├── tests/                          # pytest test suite
-├── docker-compose.yml              # 8 services
+├── docker-compose.yml              # 7 services
 ├── .env.example                    # All env vars documented
 └── .github/workflows/deploy.yml   # CI/CD pipeline
 ```
