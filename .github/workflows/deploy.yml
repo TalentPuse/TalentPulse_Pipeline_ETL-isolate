@@ -161,5 +161,9 @@ jobs:
             docker exec -i talentpulse-postgres psql -U "${POSTGRES_USER:-admin}" -d "${DB_NAME:-warehouse}" < "$f" || true
           done
 
+          # Seed normalization rules (idempotent ON CONFLICT DO NOTHING)
+          echo "Seeding normalization rules..."
+          docker exec -i talentpulse-prefect-worker python scripts/seed_normalization_rules.py || echo "Seed script not available in container, skipping"
+
           echo "Deployment successful!"
           docker compose ps
