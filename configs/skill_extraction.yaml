@@ -1,0 +1,220 @@
+# ─── LLM Config ───
+llm:
+  api_key_env: "OPENAI_API_KEY"            # env var name
+  model: "deepseek/deepseek-v4-flash"      # flash for batch (cheap + fast)
+  base_url: "https://openrouter.ai/api/v1"
+  max_concurrent: 5                         # parallel requests
+  batch_size: 50                            # jobs per batch
+  timeout: 60                               # seconds per request
+  max_text_length: 3000                     # truncate description to this
+
+# ─── Source Config ───
+source:
+  schema: "dbt_dev_silver"
+  table: "silver_job_detail"
+  text_fields:
+    - "job_description_text"
+    - "job_requirement_text"
+  id_fields:
+    - "source"
+    - "source_job_id"
+
+# ─── Output Config ───
+output:
+  log_table: "raw.skill_extraction_log"
+
+# ─── Skill Categories (Taxonomy) ───
+taxonomy:
+  programming_languages:
+    - "python"
+    - "java"
+    - "javascript"
+    - "typescript"
+    - "go"
+    - "golang"
+    - "rust"
+    - "c++"
+    - "c#"
+    - "r"
+    - "scala"
+    - "kotlin"
+    - "swift"
+    - "ruby"
+    - "php"
+    - "sql"
+    - "bash"
+    - "shell"
+
+  frameworks_libraries:
+    - "pytorch"
+    - "tensorflow"
+    - "keras"
+    - "scikit-learn"
+    - "sklearn"
+    - "pandas"
+    - "numpy"
+    - "spring"
+    - "spring boot"
+    - "react"
+    - "vue"
+    - "angular"
+    - "django"
+    - "flask"
+    - "fastapi"
+    - "langchain"
+    - "llamaindex"
+    - "streamlit"
+    - "next.js"
+    - "express"
+    - "node.js"
+    - "gin"
+    - "xgboost"
+    - "lightgbm"
+    - "catboost"
+    - "hugging face"
+    - "transformers"
+
+  cloud_platforms:
+    - "aws"
+    - "amazon web services"
+    - "azure"
+    - "microsoft azure"
+    - "gcp"
+    - "google cloud"
+    - "aws sagemaker"
+    - "aws bedrock"
+    - "azure openai"
+    - "google vertex ai"
+
+  databases:
+    - "postgresql"
+    - "postgres"
+    - "mysql"
+    - "mongodb"
+    - "redis"
+    - "elasticsearch"
+    - "cassandra"
+    - "dynamodb"
+    - "snowflake"
+    - "bigquery"
+    - "oracle"
+    - "sql server"
+    - "mssql"
+
+  devops_tools:
+    - "docker"
+    - "kubernetes"
+    - "k8s"
+    - "jenkins"
+    - "gitlab ci"
+    - "github actions"
+    - "terraform"
+    - "ansible"
+    - "prometheus"
+    - "grafana"
+    - "ci/cd"
+    - "linux"
+    - "nginx"
+
+  data_engineering:
+    - "apache spark"
+    - "spark"
+    - "apache kafka"
+    - "kafka"
+    - "apache airflow"
+    - "airflow"
+    - "dbt"
+    - "databricks"
+    - "etl"
+    - "data pipeline"
+    - "data lake"
+    - "data warehouse"
+    - "hadoop"
+    - "hive"
+    - "presto"
+    - "trino"
+    - "apache flink"
+    - "flink"
+
+  ai_ml:
+    - "machine learning"
+    - "deep learning"
+    - "nlp"
+    - "natural language processing"
+    - "computer vision"
+    - "reinforcement learning"
+    - "recommendation system"
+    - "recommender system"
+    - "llm"
+    - "large language model"
+    - "generative ai"
+    - "genai"
+    - "rag"
+    - "retrieval augmented generation"
+    - "prompt engineering"
+    - "fine-tuning"
+    - "finetuning"
+    - "embedding"
+    - "vector database"
+    - "agents"
+    - "ai agents"
+    - "mlops"
+    - "mlflow"
+    - "model training"
+    - "model deployment"
+    - "feature engineering"
+    - "neural network"
+    - "cnn"
+    - "rnn"
+    - "lstm"
+    - "transformer"
+    - "bert"
+    - "gpt"
+    - "stable diffusion"
+    - "computer vision"
+    - "object detection"
+    - "image recognition"
+    - "sentiment analysis"
+    - "text classification"
+    - "named entity recognition"
+    - "knowledge graph"
+
+  soft_skills:
+    - "communication"
+    - "problem solving"
+    - "teamwork"
+    - "leadership"
+    - "analytical thinking"
+    - "critical thinking"
+    - "project management"
+    - "agile"
+    - "scrum"
+
+# ─── LLM Prompts ───
+prompt:
+  system: |
+    Bạn là HR data analyst chuyên trích xuất skills từ job description thị trường IT Việt Nam.
+
+    Quy tắc:
+    - Trích xuất TẤT CẢ skills/technologies/tools được mention (explicit + implicit)
+    - Normalize: lowercase, bỏ version numbers (Python 3.10 → python, React.js → react)
+    - Phân loại mỗi skill vào đúng category từ taxonomy
+    - importance: "required" = bắt buộc phải có, "preferred" = nice to have, "mentioned" = chỉ nhắc tới
+    - confidence: "high" = ghi rõ trong requirements, "medium" = infer từ context, "low" = không chắc
+    - Bỏ qua company name, job title, location — chỉ lấy technical/professional skills
+    - Chỉ trả JSON, không thêm giải thích
+
+  schema: |
+    {
+      "skills": [
+        {
+          "name": "string — normalized lowercase skill name",
+          "name_raw": "string — exact text from description",
+          "category": "programming_languages|frameworks_libraries|cloud_platforms|databases|devops_tools|data_engineering|ai_ml|soft_skills|other",
+          "importance": "required|preferred|mentioned",
+          "confidence": "high|medium|low"
+        }
+      ],
+      "experience_years_min": "int or null",
+      "seniority_level": "string or null"
+    }

@@ -98,24 +98,11 @@ joined as (
         csm.size_bucket                       as company_size_bucket,
         r.is_salary_visible,
         r.salary_currency,
-        r.salary_period_id,
+        -- Sanity check: if raw salary > 10M VND and period = Hourly, it's actually Monthly
+        case when r.salary_period_id = 2 and r.salary_min > 10000000
+            then 1 else r.salary_period_id
+        end as salary_period_id,
         spm.period_label                      as salary_period_label,
-        r.salary_min                          as salary_min_raw,
-        r.salary_max                          as salary_max_raw,
-        r.pretty_salary,
-        r.pretty_salary_vi,
-        r.pretty_salary_en,
-        -- Normalized to VND monthly. Multiply by FX rate then by months_multiplier.
-        case when r.is_salary_visible and r.salary_min is not null then
-            round((r.salary_min * coalesce(fx.vnd_rate, 1) * coalesce(spm.months_multiplier, 1))::numeric)
-        end as salary_vnd_monthly_min,
-        case when r.is_salary_visible and r.salary_max is not null then
-            round((r.salary_max * coalesce(fx.vnd_rate, 1) * coalesce(spm.months_multiplier, 1))::numeric)
-        end as salary_vnd_monthly_max,
-        case when r.is_salary_visible and r.salary_min is not null and r.salary_max is not null then
-            round((((r.salary_min + r.salary_max) / 2.0)
-                * coalesce(fx.vnd_rate, 1) * coalesce(spm.months_multiplier, 1))::numeric)
-        end as salary_vnd_monthly_avg,
         coalesce(
             case r.job_level
                 when 'Intern/Student'       then 'Intern/Student'
@@ -159,7 +146,7 @@ joined as (
         r.working_to_hour,
         r.highest_degree_id,
         dm.degree_label,
-        coalesce(n.norm_job_category, cr.job_category) as job_category,
+        coalesce(cr.job_category, n.norm_job_category) as job_category,
         r.language_selected,
         r.language_selected_vi,
         r.range_age,

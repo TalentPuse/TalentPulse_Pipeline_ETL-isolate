@@ -21,6 +21,10 @@ boto3==1.34.62
 # Orchestration
 prefect==2.16.5
 
+# LLM Skill Extraction
+openai>=1.12.0
+pyyaml>=6.0
+
 # Testing & Utilities
 pytest==8.1.1
 requests-mock==1.11.0

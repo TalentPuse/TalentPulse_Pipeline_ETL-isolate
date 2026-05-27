@@ -29,3 +29,12 @@ sources:
         columns:
           - name: reject_reason
           - name: rejected_at
+
+      - name: skill_extraction_log
+        description: "LLM-extracted skills from job descriptions. One row per (source, source_job_id)."
+        columns:
+          - name: source
+          - name: source_job_id
+          - name: skills_json
+          - name: model_used
+          - name: extracted_at

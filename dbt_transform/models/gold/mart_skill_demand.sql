@@ -1,11 +1,16 @@
 {{ config(materialized='table') }}
 
--- Gold: demand signal per skill. n_jobs = number of DE/AI jobs mentioning
--- the skill; pct_of_jobs = share of total DE/AI jobs; avg_salary_vnd =
+-- Gold: demand signal per skill for IT/AI/Data jobs only.
+-- n_jobs = number of IT/AI jobs mentioning the skill;
+-- pct_of_jobs = share of total IT/AI jobs; avg_salary_vnd =
 -- average monthly salary (VND) of jobs with the skill that have visible salary.
 
 with jobs as (
     select * from {{ ref('silver_job_detail') }}
+    where job_category in (
+        'Data Engineer', 'Data Analyst', 'AI Engineer',
+        'Data Scientist', 'Backend Developer', 'Other'
+    )
 ),
 skills_long as (
     select * from {{ ref('silver_skill_long') }}
