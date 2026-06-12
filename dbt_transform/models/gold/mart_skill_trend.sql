@@ -24,7 +24,7 @@ joined as (
         s.skill_name,
         date_trunc('week', d.snapshot_date)::date as week,
         count(distinct d.source_job_id) as n_jobs,
-        round(avg(d.salary_vnd_monthly_avg) / 1000000.0, 1) as avg_salary_m
+        round(avg(d.salary_vnd_monthly_avg)::numeric / 1000000.0, 1) as avg_salary_m
     from skills s
     join daily_jobs d
         on d.source = s.source and d.source_job_id = s.source_job_id
