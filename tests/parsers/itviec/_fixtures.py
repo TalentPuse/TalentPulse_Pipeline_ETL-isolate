@@ -8,7 +8,7 @@ SAMPLE_JOB_POSTING = {
     "industry": "Information Technology",
     "title": "Senior Data Engineer",
     "datePosted": "2026-04-24",
-    "validThrough": "2026-05-29",
+    "validThrough": "2099-12-31",
     "skills": "Data Engineer, Google BigQuery, Python, SQL, Spark",
     "description": "<ul><li>Build data pipelines</li><li>Design data models</li></ul>",
     "potentialAction": {

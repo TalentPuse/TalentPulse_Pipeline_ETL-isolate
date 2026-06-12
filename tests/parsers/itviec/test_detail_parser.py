@@ -190,7 +190,7 @@ class TestParseHtml:
         assert detail.employment_type == "FULL_TIME"
         assert detail.job_function == "Information Technology"
         assert detail.posted_at == "2026-04-24"
-        assert detail.expired_at == "2026-05-29"
+        assert detail.expired_at == "2099-12-31"
         assert detail.parser_version == "itviec-v1"
         assert detail.is_active is True
         assert detail.is_expired is False
