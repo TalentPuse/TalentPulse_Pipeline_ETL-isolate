@@ -113,7 +113,7 @@ services:
     container_name: talentpulse-prefect-server
     command: prefect server start --host 0.0.0.0 --port 4200
     environment:
-      PREFECT_UI_API_URL: ${PREFECT_UI_API_URL:-http://localhost:4200/api}
+      PREFECT_UI_API_URL: ${PREFECT_UI_API_URL:-https://perfect.talentpuse.io.vn/api}
       PREFECT_SERVER_DATABASE_CONNECTION_URL: "postgresql+asyncpg://${POSTGRES_USER:-admin}:${DB_PASSWORD_ENCODED:-password}@postgres:5432/prefect"
     depends_on:
       postgres:
