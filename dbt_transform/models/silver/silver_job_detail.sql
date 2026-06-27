@@ -103,6 +103,41 @@ joined as (
             then 1 else r.salary_period_id
         end as salary_period_id,
         spm.period_label                      as salary_period_label,
+        -- Normalize the salary band to VND-monthly. NULL when the salary is not
+        -- visible, the currency has no FX rate, or the band is missing.
+        -- multiplier: Monthly=1, Hourly=172, Yearly=1/12 (from salary_period_map);
+        -- the same hourly->monthly sanity as the period correction above applies.
+        case
+            when r.is_salary_visible
+             and r.salary_min is not null
+             and fx.vnd_rate is not null
+            then round(
+                r.salary_min * fx.vnd_rate *
+                case when r.salary_period_id = 2 and r.salary_min > 10000000
+                     then 1.0 else coalesce(spm.months_multiplier, 1.0) end
+            )
+        end                                    as salary_vnd_monthly_min,
+        case
+            when r.is_salary_visible
+             and r.salary_max is not null
+             and fx.vnd_rate is not null
+            then round(
+                r.salary_max * fx.vnd_rate *
+                case when r.salary_period_id = 2 and r.salary_min > 10000000
+                     then 1.0 else coalesce(spm.months_multiplier, 1.0) end
+            )
+        end                                    as salary_vnd_monthly_max,
+        case
+            when r.is_salary_visible
+             and r.salary_min is not null
+             and r.salary_max is not null
+             and fx.vnd_rate is not null
+            then round(
+                ((r.salary_min + r.salary_max) / 2.0) * fx.vnd_rate *
+                case when r.salary_period_id = 2 and r.salary_min > 10000000
+                     then 1.0 else coalesce(spm.months_multiplier, 1.0) end
+            )
+        end                                    as salary_vnd_monthly_avg,
         coalesce(
             case r.job_level
                 when 'Intern/Student'       then 'Intern/Student'
