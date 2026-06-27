@@ -17,7 +17,7 @@ from orchestration.flows._shared import dispatch_dashboard_alerts, fmt_duration
 
 @task(name="dispatch_alerts", retries=2, retry_delay_seconds=30, timeout_seconds=180)
 def alert_dispatch() -> dict:
-    return dispatch_dashboard_alerts()
+    return dispatch_dashboard_alerts(source="alert_dispatch_flow")
 
 
 @flow(name="alert-dispatch")

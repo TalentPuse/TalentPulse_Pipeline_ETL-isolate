@@ -114,7 +114,7 @@ def normalize() -> str:
 
 @task(name="itviec_dispatch_alerts", retries=1, timeout_seconds=180)
 def dispatch_alerts() -> dict:
-    return dispatch_dashboard_alerts()
+    return dispatch_dashboard_alerts(source="itviec_etl")
 
 
 @flow(name="itviec-pipeline")

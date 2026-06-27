@@ -25,21 +25,30 @@ def counters_table(source: str, stage: str, counters: dict, duration: float) -> 
     )
 
 
-def dispatch_dashboard_alerts() -> dict:
-    """Call dashboard API to dispatch job alerts after fresh data is loaded."""
+def dispatch_dashboard_alerts(source: str = "etl_inline") -> dict:
+    """Call dashboard API to dispatch job alerts after fresh data is loaded.
+
+    Args:
+        source: Which trigger source initiated this dispatch
+                ("background_loop", "admin_manual", "cron_webhook", "etl_inline",
+                 "vnw_etl", "itviec_etl", "linkedin_etl", "alert_dispatch_flow")
+    """
     logger = get_run_logger()
     url = os.getenv("DASHBOARD_API_URL", "http://tp-backend:8001")
     secret = os.getenv("ALERT_DISPATCH_SECRET") or os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
     try:
         resp = requests.post(
             f"{url}/api/admin/alerts/dispatch-internal",
-            headers={"X-Webhook-Secret": secret},
+            headers={
+                "X-Webhook-Secret": secret,
+                "X-Dispatch-Source": source,  # NEW header
+            },
             timeout=120,
         )
         resp.raise_for_status()
         result = resp.json()
         dispatched = result.get("dispatched", 0)
-        logger.info(f"Dashboard alerts dispatched: {dispatched} jobs")
+        logger.info(f"Dashboard alerts dispatched: {dispatched} jobs (source={source})")
         return result
     except requests.exceptions.HTTPError as exc:
         logger.error(f"Alert dispatch HTTP error: {exc.response.status_code} — {exc.response.text[:200]}")
