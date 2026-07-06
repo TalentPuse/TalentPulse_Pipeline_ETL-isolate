@@ -45,25 +45,26 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
 
-      - name: Log in to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Install postgresql-client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
 
+      # Runs psql on the runner itself, not inside the -worker image - that
+      # image (prefecthq/prefect:2.16.5-python3.10 + psycopg2-binary) has no
+      # psql binary. Uses discrete -h/-p/-U/-d flags with PGPASSWORD instead
+      # of a postgresql:// URI so a password containing URI-special
+      # characters (@, :, /, #, etc.) doesn't need manual percent-encoding.
       - name: Apply scripts/migrate_*.sql over tailnet
         run: |
           set -euo pipefail
-          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          IMAGE="ghcr.io/${REPO_LOWER}-worker:develop"
-
           for f in scripts/migrate_*.sql; do
             echo "Applying ${f}..."
-            docker run --rm -i \
-              -e DB_HOST -e DB_PORT -e DB_USER -e DB_PASSWORD -e DB_NAME \
-              -v "$(pwd)/${f}:/tmp/migrate.sql:ro" \
-              --entrypoint psql \
-              "${IMAGE}" \
-              "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}" \
-              -v ON_ERROR_STOP=0 -f /tmp/migrate.sql
+            PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=0 -f "$f"
           done
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
       - name: Seed normalization rules (idempotent)
         run: |

@@ -105,5 +105,19 @@ def skill_extraction_pipeline(
 
 
 if __name__ == "__main__":
-    result = skill_extraction_pipeline(max_jobs=10, run_dbt_after=False)
-    print(result)
+    import os
+
+    if os.getenv("PREFECT_DEPLOY", "0") == "1":
+        skill_extraction_pipeline.serve(
+            name="skill-extraction-pipeline-daily",
+            cron="0 8 * * *",
+            tags=["skills", "llm"],
+        )
+    else:
+        # Run-once mode (GHA daily job): process the full backlog and
+        # rebuild dbt gold tables so extracted skills actually land there.
+        # SKILL_MAX_JOBS lets an operator cap a single run (e.g. for a
+        # manual smoke test) without touching code; unset/0 means "all".
+        max_jobs = int(os.getenv("SKILL_MAX_JOBS", "0")) or None
+        result = skill_extraction_pipeline(max_jobs=max_jobs, run_dbt_after=True)
+        print(result)

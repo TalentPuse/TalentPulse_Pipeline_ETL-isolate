@@ -16,7 +16,7 @@ class MinioClient:
             endpoint_url=config.S3_ENDPOINT_URL,
             aws_access_key_id=config.S3_ACCESS_KEY,
             aws_secret_access_key=config.S3_SECRET_KEY,
-            region_name=getattr(config, "S3_REGION", "us-east-1"),  # 'us-east-1' default for S3 APIs
+            region_name=config.S3_REGION,
         )
         self._ensure_bucket_exists(config.S3_BUCKET_NAME)
 

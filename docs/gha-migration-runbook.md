@@ -55,17 +55,60 @@ automatable by the agent that authored the workflows.
    ```
    Record this **100.x.y.z** address — it is the `VPS_TAILNET_IP` GitHub
    Variable used by every `pipeline-*.yml` workflow.
-3. **Do not** change existing `0.0.0.0`/public bindings as part of this step
-   unless you also update the ACL — the current `docker-compose.yml` still
-   binds Postgres to `127.0.0.1:5432` (loopback only, tailnet reaches it via
-   the host's tailscaled routing, which is fine) and Prefect to `4200:4200`
-   (currently reachable on the public interface too). Hardening
-   recommendation (not done automatically by this migration, do it as a
-   follow-up): bind Prefect to the `tailscale0` interface IP or firewall
-   port 4200 to only accept from the tailnet CIDR, matching spec §5's
-   "don't expose Postgres/Prefect to the internet" constraint. `scripts/server-setup.sh`
-   already keeps 5432 and 9000/9001 loopback-only; only 4200 is currently
-   open more broadly and is worth tightening.
+3. **A `127.0.0.1:5432` docker publish is NOT reachable over the tailnet.**
+   An earlier draft of this runbook claimed otherwise ("tailnet reaches it
+   via the host's tailscaled routing") — that is false. Docker's port
+   publish only installs a DNAT rule for packets whose *destination* is
+   `127.0.0.1` (loopback); tailnet traffic arrives addressed to the VPS's
+   `100.x.y.z` tailscale IP, which never matches that rule, so the
+   connection is refused/times out regardless of ACLs. The same is true for
+   any other service published as `127.0.0.1:<port>:<port>`.
+
+   Instead, expose each service the CI job needs **explicitly over
+   Tailscale**, keeping it off the public internet:
+   ```bash
+   tailscale serve --bg --tcp=5432 tcp://127.0.0.1:5432   # Postgres
+   tailscale serve --bg --tcp=4200 tcp://127.0.0.1:4200   # Prefect API/UI
+   tailscale serve --bg --tcp=8001 tcp://127.0.0.1:8001   # tp-backend (dashboard, for alert dispatch)
+   ```
+   `tailscale serve` listens on the tailnet interface (the VPS's `100.x.y.z`
+   address) and forwards to the given loopback target — so it keeps the
+   docker publish itself bound to loopback-only (nothing changes there) and
+   simply bridges tailnet → loopback for these three ports. This is what
+   makes the already-configured `DB_HOST`/`PREFECT_API_URL`/
+   `DASHBOARD_API_URL` values (all `${{ vars.VPS_TAILNET_IP }}:<port>`) in
+   the `pipeline-*.yml` workflows actually reach the VPS.
+
+   Alternative (not recommended over the above): rebind the docker publish
+   itself to the `tailscale0` interface IP (`<tailscale-ip>:5432:5432`
+   instead of `127.0.0.1:5432:5432`) so the service listens directly on the
+   tailnet. `tailscale serve` is preferred because it keeps the container
+   bound to loopback (nothing to accidentally expose if the tailscale IP
+   ever changes or the interface flaps) and is a single command to add/undo
+   per service.
+
+4. **Security action item — remove public exposure after cutover.** Today,
+   Prefect (`4200`) and effectively Postgres (`5432`, via the loopback bind
+   the app itself connects to) are reachable beyond the tailnet:
+   `docker-compose.yml` publishes `4200:4200` (all interfaces, not just
+   loopback) and `scripts/server-setup.sh` runs `sudo ufw allow 4200/tcp`,
+   so Prefect's UI/API is currently open to the public internet. Once the
+   tailnet path from item 3 is confirmed working end-to-end (§(d) step 2
+   smoke test), **close this off**:
+   - `sudo ufw delete allow 4200/tcp` on the VPS (removes the public
+     firewall hole; CI and any human access to Prefect now go over Tailscale
+     only, e.g. `tailscale serve` from item 3 plus `tailscale funnel`/`serve`
+     locally, or just `ssh` + `localhost:4200` tunneling for humans).
+   - Change `docker-compose.yml`'s Prefect port mapping from `"4200:4200"`
+     to `"127.0.0.1:4200:4200"` (matching how Postgres is already bound) so
+     a firewall misconfiguration alone can't re-expose it.
+   - Do **not** publish `5432` or `4200` to `0.0.0.0` again for any reason
+     tied to this migration — the GHA workflows only need the tailnet path.
+   - If you deliberately *want* the Prefect UI reachable from the public
+     internet (e.g. to check runs from a phone without Tailscale installed),
+     that is a valid choice — but make it an explicit, documented decision
+     (e.g. put it behind its own auth/reverse proxy), not the silent default
+     it is today.
 
 ### GitHub Actions (CI) side
 1. Tailscale admin console → **Settings → OAuth clients** → **Generate OAuth client**.
