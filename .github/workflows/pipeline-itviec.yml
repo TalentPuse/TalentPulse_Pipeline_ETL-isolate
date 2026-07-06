@@ -1,0 +1,64 @@
+name: Pipeline - ITviec
+
+# Cron is UTC. "0 4 * * *" UTC == 11:00 Asia/Ho_Chi_Minh (UTC+7).
+# Adjust the hour below if you want a different VN local time.
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: pipeline-itviec
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  run:
+    name: Run itviec-pipeline (run-once)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # Prefect (VPS, over tailnet)
+      PREFECT_API_URL: http://${{ vars.VPS_TAILNET_IP }}:4200/api
+
+      # Postgres warehouse (VPS, over tailnet)
+      DB_HOST: ${{ vars.VPS_TAILNET_IP }}
+      DB_PORT: "5432"
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_NAME: ${{ vars.DB_NAME || 'warehouse' }}
+
+      # Cloudflare R2 (S3-compatible raw object storage)
+      S3_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT_URL }}
+      S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+      S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
+      S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME || 'talentpulse-raw' }}
+
+      # Crawler
+      CRAWLER_CONTACT_EMAIL: ${{ vars.CRAWLER_CONTACT_EMAIL }}
+      ITVIEC_KEYWORDS: ${{ vars.ITVIEC_KEYWORDS || 'data-engineer,ai-engineer,data-analyst' }}
+      FOCUS_KEYWORDS: ${{ vars.FOCUS_KEYWORDS || 'data engineer,data analyst,ai,machine learning,data science,data scientist,big data,analytics,business development,business analyst,technical sales' }}
+      SKIP_FOCUS_SOURCES: ${{ vars.SKIP_FOCUS_SOURCES || 'itviec' }}
+
+      # itviec_pipeline's final task calls the dashboard API to dispatch
+      # alerts (orchestration/flows/_shared.py::dispatch_dashboard_alerts),
+      # so this job needs tailnet access to tp-backend:8001 too.
+      DASHBOARD_API_URL: http://${{ vars.VPS_TAILNET_IP }}:8001
+      ALERT_DISPATCH_SECRET: ${{ secrets.ALERT_DISPATCH_SECRET }}
+      TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run itviec-pipeline
+        uses: ./.github/actions/run-flow
+        with:
+          image-suffix: itviec
+          module: orchestration.flows.itviec_pipeline
+          image-tag: develop
+          ts-oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          ts-oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}

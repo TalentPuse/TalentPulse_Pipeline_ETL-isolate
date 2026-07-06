@@ -16,12 +16,19 @@ class MinioClient:
             endpoint_url=config.S3_ENDPOINT_URL,
             aws_access_key_id=config.S3_ACCESS_KEY,
             aws_secret_access_key=config.S3_SECRET_KEY,
-            region_name='us-east-1' # default for S3 APIs
+            region_name=getattr(config, "S3_REGION", "us-east-1"),  # 'us-east-1' default for S3 APIs
         )
         self._ensure_bucket_exists(config.S3_BUCKET_NAME)
 
     def _ensure_bucket_exists(self, bucket_name: str):
-        """Creates the bucket if it doesn't exist."""
+        """Creates the bucket if it doesn't exist.
+
+        Tolerant of providers (e.g. Cloudflare R2) that disallow bucket
+        creation via the S3 API — in that setup the bucket is pre-created
+        out-of-band (see docs/gha-migration-runbook.md), so a failed
+        create_bucket call is logged as a warning instead of raised, as
+        long as head_bucket confirms it already exists.
+        """
         try:
             self.s3_client.head_bucket(Bucket=bucket_name)
         except ClientError as e:
@@ -32,8 +39,19 @@ class MinioClient:
                 try:
                     self.s3_client.create_bucket(Bucket=bucket_name)
                 except ClientError as ce:
-                    logger.error(f"Failed to create bucket '{bucket_name}': {ce}")
-                    raise
+                    # Re-check: some providers (e.g. R2) reject API bucket
+                    # creation outright even though the bucket already
+                    # exists (pre-created by the operator). Only crash if
+                    # it genuinely isn't there.
+                    try:
+                        self.s3_client.head_bucket(Bucket=bucket_name)
+                        logger.warning(
+                            f"create_bucket for '{bucket_name}' failed ({ce}), but the bucket "
+                            "already exists (confirmed via head_bucket) — continuing."
+                        )
+                    except ClientError:
+                        logger.error(f"Failed to create bucket '{bucket_name}': {ce}")
+                        raise
             else:
                 # Other errors like 403 Forbidden etc
                 logger.error(f"Error verifying bucket '{bucket_name}': {e}")

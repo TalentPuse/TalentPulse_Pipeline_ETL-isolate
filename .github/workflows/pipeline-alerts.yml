@@ -1,0 +1,55 @@
+name: Pipeline - Alert Dispatch
+
+# Cron is UTC. "0 7,12 * * *" UTC == 14:00 and 19:00 Asia/Ho_Chi_Minh (UTC+7).
+# Adjust the hours below if you want different VN local times.
+on:
+  schedule:
+    - cron: "0 7,12 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: pipeline-alerts
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  run:
+    name: Run alert-dispatch (run-once)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # Prefect (VPS, over tailnet)
+      PREFECT_API_URL: http://${{ vars.VPS_TAILNET_IP }}:4200/api
+
+      # Postgres warehouse (VPS, over tailnet) - flow itself only calls the
+      # dashboard API, but Prefect + the worker image still expect DB_* set.
+      DB_HOST: ${{ vars.VPS_TAILNET_IP }}
+      DB_PORT: "5432"
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_NAME: ${{ vars.DB_NAME || 'warehouse' }}
+
+      # alert_dispatch_flow calls dashboard API
+      # (orchestration/flows/_shared.py::dispatch_dashboard_alerts) at
+      # http://tp-backend:8001 by default - reachable over tailnet as the
+      # VPS's tailnet IP on port 8001.
+      DASHBOARD_API_URL: http://${{ vars.VPS_TAILNET_IP }}:8001
+      ALERT_DISPATCH_SECRET: ${{ secrets.ALERT_DISPATCH_SECRET }}
+      TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run alert-dispatch
+        uses: ./.github/actions/run-flow
+        with:
+          image-suffix: worker
+          module: orchestration.flows.alert_dispatch
+          image-tag: develop
+          ts-oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          ts-oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}

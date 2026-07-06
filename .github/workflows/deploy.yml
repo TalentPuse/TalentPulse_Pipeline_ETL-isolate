@@ -106,12 +106,7 @@ jobs:
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           DB_NAME: ${{ vars.DB_NAME || 'warehouse' }}
-          MINIO_ROOT_USER: ${{ secrets.MINIO_ROOT_USER }}
-          MINIO_ROOT_PASSWORD: ${{ secrets.MINIO_ROOT_PASSWORD }}
-          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME || 'talentpulse-raw' }}
           PREFECT_UI_API_URL: ${{ secrets.PREFECT_UI_API_URL || 'http://localhost:4200/api' }}
-          CRAWLER_CONTACT_EMAIL: ${{ secrets.CRAWLER_CONTACT_EMAIL || 'contact@example.com' }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         run: |
           DB_PASS_ENCODED=$(python3 -c "from urllib.parse import quote_plus; import os; print(quote_plus(os.environ['POSTGRES_PASSWORD']))")
 
@@ -120,50 +115,23 @@ jobs:
           echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" >> .env
           echo "DB_PASSWORD_ENCODED=${DB_PASS_ENCODED}" >> .env
           echo "DB_NAME=${DB_NAME}" >> .env
-          echo "MINIO_ROOT_USER=${MINIO_ROOT_USER}" >> .env
-          echo "MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}" >> .env
-          echo "S3_ENDPOINT_URL=http://minio:9000" >> .env
-          echo "S3_ACCESS_KEY=${MINIO_ROOT_USER}" >> .env
-          echo "S3_SECRET_KEY=${MINIO_ROOT_PASSWORD}" >> .env
-          echo "S3_BUCKET_NAME=${S3_BUCKET_NAME}" >> .env
           echo "PREFECT_UI_API_URL=${PREFECT_UI_API_URL}" >> .env
-          echo "CRAWLER_CONTACT_EMAIL=${CRAWLER_CONTACT_EMAIL}" >> .env
-          echo "TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}" >> .env
 
           echo ".env created successfully"
 
+      # NOTE: no worker/itviec/linkedin image pull here anymore - those
+      # compute images are now only consumed by the pipeline-*.yml GHA cron
+      # workflows (docker run over Tailscale), not by anything running on
+      # the VPS. build-and-push (above) still builds+pushes them so those
+      # workflows have something to pull.
       - name: Deploy with Docker Compose
         run: |
-          export REGISTRY=${{ env.REGISTRY }}
-          export IMAGE_NAME=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
-          export IMAGE_TAG=sha-${{ github.sha }}
-          export IMAGE_TAG_FALLBACK=${{ github.ref_name }}
-
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-          # Pull custom images
-          for suffix in worker itviec linkedin; do
-            if ! docker pull ${REGISTRY}/${IMAGE_NAME}-${suffix}:${IMAGE_TAG}; then
-              echo "Fallback to ${IMAGE_TAG_FALLBACK} for ${suffix}"
-              export IMAGE_TAG=${IMAGE_TAG_FALLBACK}
-              docker pull ${REGISTRY}/${IMAGE_NAME}-${suffix}:${IMAGE_TAG}
-            fi
-          done
-
-          docker compose up -d
+          # No GHCR login needed here: postgres/prefect-server/metabase are
+          # all public Docker Hub images. --remove-orphans tears down any previously-running
+          # prefect-worker/alert-worker/itviec-worker/linkedin-worker/minio
+          # containers left over from before this migration.
+          docker compose up -d --remove-orphans
           docker image prune -f
-
-          # Run DB migrations (idempotent ALTER TABLE IF NOT EXISTS)
-          echo "Running database migrations..."
-          source .env 2>/dev/null || true
-          for f in scripts/migrate_*.sql; do
-            echo "  applying $f"
-            docker exec -i talentpulse-postgres psql -U "${POSTGRES_USER:-admin}" -d "${DB_NAME:-warehouse}" < "$f" || true
-          done
-
-          # Seed normalization rules (idempotent ON CONFLICT DO NOTHING)
-          echo "Seeding normalization rules..."
-          docker exec -i talentpulse-prefect-worker python scripts/seed_normalization_rules.py || echo "Seed script not available in container, skipping"
 
           echo "Deployment successful!"
           docker compose ps

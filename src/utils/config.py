@@ -14,11 +14,12 @@ class Config:
     DB_PORT: str = os.getenv("DB_PORT", "5432")
     DB_NAME: str = os.getenv("DB_NAME", "warehouse")
 
-    # MinIO / S3
+    # MinIO / S3 (also used for Cloudflare R2, which is S3-API compatible)
     S3_ENDPOINT_URL: str = os.getenv("S3_ENDPOINT_URL", "http://localhost:9000")
     S3_ACCESS_KEY: str = os.getenv("S3_ACCESS_KEY", "minioadmin")
     S3_SECRET_KEY: str = os.getenv("S3_SECRET_KEY", "minioadmin")
     S3_BUCKET_NAME: str = os.getenv("S3_BUCKET_NAME", "talentpulse-raw")
+    S3_REGION: str = os.getenv("S3_REGION", "us-east-1")
 
     # Keywords per source (comma-separated in env)
     VNW_KEYWORDS: list[str] = [

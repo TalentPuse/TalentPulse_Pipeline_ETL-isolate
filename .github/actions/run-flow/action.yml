@@ -1,0 +1,94 @@
+name: "Run TalentPulse pipeline flow"
+description: >
+  Joins the Tailscale tailnet, logs into GHCR, and runs a single Prefect
+  pipeline flow module once (docker run --rm) against the VPS-hosted
+  Postgres/Prefect/dashboard services. Used by all pipeline-*.yml workflows
+  so the tailscale/docker/env wiring lives in exactly one place (DRY).
+
+  NOTE: composite actions cannot read `${{ secrets.* }}` directly. Tailscale
+  OAuth credentials and the GHCR token must be passed in as inputs from the
+  calling workflow. The flow's own runtime env (DB_HOST, S3_*, etc.) is NOT
+  passed as inputs — it is inherited from the calling job's `env:` block and
+  forwarded into the container with `docker run -e VAR` (no `=value`), which
+  copies the value straight from the runner's shell environment.
+
+inputs:
+  image-suffix:
+    description: 'ghcr.io image suffix: "worker", "itviec", or "linkedin"'
+    required: true
+  module:
+    description: 'Python module to run, e.g. "orchestration.flows.vnw_pipeline"'
+    required: true
+  image-tag:
+    description: 'Image tag to pull (matches deploy.yml build-and-push branch tag)'
+    required: false
+    default: "develop"
+  ts-oauth-client-id:
+    description: "Tailscale OAuth client ID (tag:ci)"
+    required: true
+  ts-oauth-secret:
+    description: "Tailscale OAuth client secret (tag:ci)"
+    required: true
+  github-token:
+    description: "Token used to `docker login ghcr.io` (usually secrets.GITHUB_TOKEN)"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Connect to Tailscale
+      uses: tailscale/github-action@v3
+      with:
+        oauth-client-id: ${{ inputs.ts-oauth-client-id }}
+        oauth-secret: ${{ inputs.ts-oauth-secret }}
+        tags: tag:ci
+
+    - name: Log in to GHCR
+      shell: bash
+      run: |
+        echo "${{ inputs.github-token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+    - name: Run flow (docker run --rm, run-once mode)
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+        IMAGE="ghcr.io/${REPO_LOWER}-${{ inputs.image-suffix }}:${{ inputs.image-tag }}"
+
+        echo "Image:  ${IMAGE}"
+        echo "Module: ${{ inputs.module }}"
+
+        # IMPORTANT: PREFECT_DEPLOY is intentionally NOT set/forwarded here.
+        # Every flow's `if __name__ == "__main__"` block only calls `.serve()`
+        # (register a long-lived cron deployment) when PREFECT_DEPLOY=="1".
+        # Leaving it unset makes the flow run once and exit - exactly what a
+        # scheduled GHA job needs. Do not add `-e PREFECT_DEPLOY` below.
+        docker run --rm \
+          -e PREFECT_API_URL \
+          -e DB_HOST \
+          -e DB_PORT \
+          -e DB_USER \
+          -e DB_PASSWORD \
+          -e DB_NAME \
+          -e S3_ENDPOINT_URL \
+          -e S3_ACCESS_KEY \
+          -e S3_SECRET_KEY \
+          -e S3_BUCKET_NAME \
+          -e VNW_KEYWORDS \
+          -e ITVIEC_KEYWORDS \
+          -e ALLOWED_FUNCTION_IDS \
+          -e FOCUS_KEYWORDS \
+          -e LINKEDIN_KEYWORDS \
+          -e LINKEDIN_TITLE_KEYWORDS \
+          -e LINKEDIN_GEO_ID \
+          -e LINKEDIN_RATE_SECONDS \
+          -e SKIP_FOCUS_SOURCES \
+          -e DASHBOARD_API_URL \
+          -e ALERT_DISPATCH_SECRET \
+          -e TELEGRAM_WEBHOOK_SECRET \
+          -e TELEGRAM_BOT_TOKEN \
+          -e OPENAI_API_KEY \
+          -e CRAWLER_CONTACT_EMAIL \
+          "${IMAGE}" \
+          python -m "${{ inputs.module }}"

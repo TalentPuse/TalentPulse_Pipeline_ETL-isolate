@@ -1,0 +1,52 @@
+name: Pipeline - Skill Extraction
+
+# Cron is UTC. "0 8 * * *" UTC == 15:00 Asia/Ho_Chi_Minh (UTC+7), i.e. after
+# the vnw/itviec/linkedin crawls above have had a chance to land fresh rows.
+# Adjust the hour below if you want a different VN local time.
+on:
+  schedule:
+    - cron: "0 8 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: pipeline-skill-extraction
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  run:
+    name: Run skill-extraction-pipeline (run-once)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # Prefect (VPS, over tailnet)
+      PREFECT_API_URL: http://${{ vars.VPS_TAILNET_IP }}:4200/api
+
+      # Postgres warehouse (VPS, over tailnet) - reads dbt_dev_silver,
+      # writes raw.skill_extraction_log, then re-runs dbt.
+      DB_HOST: ${{ vars.VPS_TAILNET_IP }}
+      DB_PORT: "5432"
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_NAME: ${{ vars.DB_NAME || 'warehouse' }}
+
+      # LLM (configs/skill_extraction.yaml -> llm.api_key_env: OPENAI_API_KEY;
+      # base_url in that config points at OpenRouter, key is just read from
+      # this env var name).
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run skill-extraction-pipeline
+        uses: ./.github/actions/run-flow
+        with:
+          image-suffix: worker
+          module: orchestration.flows.skill_extraction_pipeline
+          image-tag: develop
+          ts-oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          ts-oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
