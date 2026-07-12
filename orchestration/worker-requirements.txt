@@ -1,2 +1,7 @@
-# VNW worker: base deps only (Prefect comes from base image).
+# VNW worker: base deps + the skill-extraction stack.
+# pipeline-skill-extraction.yml runs orchestration.flows.skill_extraction_pipeline
+# out of THIS image, and src/extractors/skill_extractor.py imports openai + yaml.
+# Neither is in base-requirements.txt, so the flow died on import before this.
 -r base-requirements.txt
+openai>=1.12.0
+pyyaml>=6.0

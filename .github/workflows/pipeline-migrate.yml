@@ -60,7 +60,11 @@ jobs:
           set -euo pipefail
           for f in scripts/migrate_*.sql; do
             echo "Applying ${f}..."
-            PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=0 -f "$f"
+            # ON_ERROR_STOP=1: every migrate_*.sql is idempotent (IF NOT EXISTS /
+            # ADD COLUMN IF NOT EXISTS), so a real error here means the migration
+            # is broken, not merely re-applied. With =0 psql swallowed it and the
+            # job went green on a half-migrated schema.
+            PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$f"
           done
 
       - name: Log in to GHCR

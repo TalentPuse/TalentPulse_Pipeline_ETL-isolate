@@ -6,4 +6,6 @@ ENV PYTHONPATH=/app
 COPY src/ ./src/
 COPY orchestration/ ./orchestration/
 COPY dbt_transform/ ./dbt_transform/
+COPY configs/ ./configs/
+COPY scripts/ ./scripts/
 RUN cd dbt_transform && dbt deps --profiles-dir .

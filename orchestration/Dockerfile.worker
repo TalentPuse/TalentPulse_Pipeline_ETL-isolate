@@ -6,4 +6,10 @@ ENV PYTHONPATH=/app
 COPY src/ ./src/
 COPY orchestration/ ./orchestration/
 COPY dbt_transform/ ./dbt_transform/
+# configs/: skill_extractor.load_config() resolves <repo>/configs/skill_extraction.yaml.
+# scripts/: pipeline-migrate.yml runs `python scripts/seed_normalization_rules.py`
+# inside this image. Both were missing, so skill-extraction and the migrate seed
+# step failed on every run.
+COPY configs/ ./configs/
+COPY scripts/ ./scripts/
 RUN cd dbt_transform && dbt deps --profiles-dir .
