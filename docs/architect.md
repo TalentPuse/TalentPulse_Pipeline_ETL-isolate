@@ -1,8 +1,8 @@
 # TalentPulse — System Architecture
 
 **Last verified:** 2026-07-12, against the running stack — not from memory.
-**Supersedes:** `ARCHITECTURE.md`, which still describes the 8-container / MinIO
-layout retired on 2026-07-06.
+**Companion:** `components.md` covers what is *inside* each component. This file
+covers how they fit together.
 
 ---
 
@@ -259,4 +259,5 @@ restoring the warehouse then touches zero user rows.
 - `gha-migration-runbook.md` — moving the pipeline onto GitHub Actions; R2,
   Tailscale and GitHub Secrets setup.
 - `website-warehouse-db-split.md` — splitting user data out of the warehouse.
-- `ARCHITECTURE.md` — **stale.** Describes the retired 8-container layout.
+- `components.md` — component internals: crawlers, queue, parsers, loaders, dbt
+  models, alerts. (Was `ARCHITECTURE.md`; its stale system-level chapters are gone.)
