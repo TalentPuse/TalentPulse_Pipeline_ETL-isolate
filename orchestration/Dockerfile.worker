@@ -1,5 +1,20 @@
 FROM prefecthq/prefect:2.16.5-python3.10
 WORKDIR /app
+
+# pg_dump for the backup flow. It must be >= the server (15.x): an older pg_dump
+# refuses a newer server outright, and Debian's own postgresql-client can lag, so
+# pin the version from PGDG rather than taking whatever the base distro ships.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates gnupg \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+         -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo $VERSION_CODENAME)-pgdg main" \
+         > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-client-15 \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY orchestration/base-requirements.txt orchestration/worker-requirements.txt ./
 RUN pip install --no-cache-dir -r worker-requirements.txt
 ENV PYTHONPATH=/app

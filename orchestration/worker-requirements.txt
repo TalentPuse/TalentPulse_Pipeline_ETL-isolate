@@ -5,3 +5,8 @@
 -r base-requirements.txt
 openai>=1.12.0
 pyyaml>=6.0
+
+# backup_pipeline: src/backup/r2_backup.py exports the dbt gold/feature models to
+# zstd Parquet via pandas + pyarrow.
+pandas>=2.2.0
+pyarrow>=15.0.0

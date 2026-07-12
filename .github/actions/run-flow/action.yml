@@ -90,5 +90,11 @@ runs:
           -e TELEGRAM_BOT_TOKEN \
           -e OPENAI_API_KEY \
           -e CRAWLER_CONTACT_EMAIL \
+          -e BACKUP_BUCKET \
+          -e PARQUET_SCHEMAS \
+          -e KEEP_DAILY_DAYS \
+          -e KEEP_WEEKLY_WEEKS \
+          -e KEEP_MONTHLY_MONTHS \
+          -e MIN_KEEP_DUMPS \
           "${IMAGE}" \
           python -m "${{ inputs.module }}"

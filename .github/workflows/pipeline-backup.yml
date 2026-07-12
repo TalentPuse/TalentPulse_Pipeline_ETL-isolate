@@ -1,0 +1,68 @@
+name: Pipeline - Warehouse Backup
+
+# Cron is UTC. "0 13 * * *" UTC == 20:00 Asia/Ho_Chi_Minh (UTC+7).
+#
+# Deliberately the LAST job of the day. The others land at VN 09:00 (VNW),
+# 11:00 (ITviec), 13:00 (LinkedIn), 14:00 + 19:00 (alerts) and 15:00 (skill
+# extraction), so a 20:00 backup captures a finished warehouse rather than one
+# halfway through being rebuilt.
+on:
+  schedule:
+    - cron: "0 13 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: pipeline-backup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  run:
+    name: Back up warehouse to R2
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PREFECT_API_URL: http://${{ vars.VPS_TAILNET_IP }}:4200/api
+
+      # Postgres warehouse (VPS, over tailnet)
+      DB_HOST: ${{ vars.VPS_TAILNET_IP }}
+      DB_PORT: "5432"
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_NAME: ${{ vars.DB_NAME || 'warehouse' }}
+
+      # Cloudflare R2. Backups go to their OWN bucket, not the raw-crawl one: a
+      # bad prefix or an over-eager lifecycle rule on talentpulse-raw must not be
+      # able to reach the backups.
+      S3_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT_URL }}
+      S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+      S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
+      BACKUP_BUCKET: ${{ vars.BACKUP_BUCKET || 'talentpulse-backup' }}
+
+      PARQUET_SCHEMAS: ${{ vars.PARQUET_SCHEMAS || 'dbt_dev_gold,dbt_dev_feature' }}
+
+      # Grandfather-father-son retention. Daily backups thin into weeklies and
+      # then monthlies instead of falling off a single cliff, so corruption
+      # noticed two months late is still recoverable. At ~4.5MB a dump, a full
+      # year of this is well under 200MB — R2's free tier is 10GB, so there is no
+      # cost argument for keeping less.
+      KEEP_DAILY_DAYS: ${{ vars.KEEP_DAILY_DAYS || '14' }}
+      KEEP_WEEKLY_WEEKS: ${{ vars.KEEP_WEEKLY_WEEKS || '8' }}
+      KEEP_MONTHLY_MONTHS: ${{ vars.KEEP_MONTHLY_MONTHS || '12' }}
+      MIN_KEEP_DUMPS: ${{ vars.MIN_KEEP_DUMPS || '7' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run warehouse-backup
+        uses: ./.github/actions/run-flow
+        with:
+          image-suffix: worker
+          module: orchestration.flows.backup_pipeline
+          image-tag: develop
+          ts-oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          ts-oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
