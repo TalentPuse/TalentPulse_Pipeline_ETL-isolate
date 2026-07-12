@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      DB_HOST: ${{ vars.VPS_TAILNET_IP }}
+      DB_HOST: ${{ vars.WAREHOUSE_TAILNET_IP }}
       DB_PORT: "5432"
       DB_USER: ${{ secrets.DB_USER }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}

@@ -4,7 +4,8 @@
 # Called by cron or daily_run.sh after dbt completes.
 set -euo pipefail
 
-API_URL="${DASHBOARD_API_URL:-http://tp-backend:8001}"
+# tp-backend is on its own box; there is no shared docker network to resolve it.
+API_URL="${DASHBOARD_API_URL:-http://localhost:8001}"
 SECRET="${TELEGRAM_WEBHOOK_SECRET:-${ALERT_DISPATCH_SECRET:-dev-webhook-secret}}"
 
 echo "$(date -Iseconds) Dispatching alerts via $API_URL ..."

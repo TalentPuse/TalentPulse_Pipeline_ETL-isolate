@@ -23,10 +23,10 @@ jobs:
     env:
       # Prefect (VPS, over tailnet) - flow still reports the run even
       # though it does not register a .serve() cron deployment.
-      PREFECT_API_URL: http://${{ vars.VPS_TAILNET_IP }}:4200/api
+      PREFECT_API_URL: http://${{ vars.WAREHOUSE_TAILNET_IP }}:4200/api
 
       # Postgres warehouse (VPS, over tailnet)
-      DB_HOST: ${{ vars.VPS_TAILNET_IP }}
+      DB_HOST: ${{ vars.WAREHOUSE_TAILNET_IP }}
       DB_PORT: "5432"
       DB_USER: ${{ secrets.DB_USER }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
@@ -47,8 +47,10 @@ jobs:
 
       # vnw_pipeline's final task calls the dashboard API to dispatch alerts
       # (see orchestration/flows/_shared.py::dispatch_dashboard_alerts), so
-      # this job needs tailnet access to tp-backend:8001 too.
-      DASHBOARD_API_URL: http://${{ vars.VPS_TAILNET_IP }}:8001
+      # tp-backend runs on the WEB box, not this one. Hence a second tailnet
+      # variable: WAREHOUSE_TAILNET_IP for postgres/prefect, WEB_TAILNET_IP for
+      # the dashboard API. Pointing both at one IP is what coupled them before.
+      DASHBOARD_API_URL: http://${{ vars.WEB_TAILNET_IP }}:8001
       ALERT_DISPATCH_SECRET: ${{ secrets.ALERT_DISPATCH_SECRET }}
       TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
     steps:

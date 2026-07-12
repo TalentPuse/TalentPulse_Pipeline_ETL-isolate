@@ -22,11 +22,11 @@ jobs:
     timeout-minutes: 45
     env:
       # Prefect (VPS, over tailnet)
-      PREFECT_API_URL: http://${{ vars.VPS_TAILNET_IP }}:4200/api
+      PREFECT_API_URL: http://${{ vars.WAREHOUSE_TAILNET_IP }}:4200/api
 
       # Postgres warehouse (VPS, over tailnet) - flow itself only calls the
       # dashboard API, but Prefect + the worker image still expect DB_* set.
-      DB_HOST: ${{ vars.VPS_TAILNET_IP }}
+      DB_HOST: ${{ vars.WAREHOUSE_TAILNET_IP }}
       DB_PORT: "5432"
       DB_USER: ${{ secrets.DB_USER }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
@@ -34,9 +34,10 @@ jobs:
 
       # alert_dispatch_flow calls dashboard API
       # (orchestration/flows/_shared.py::dispatch_dashboard_alerts) at
-      # http://tp-backend:8001 by default - reachable over tailnet as the
-      # VPS's tailnet IP on port 8001.
-      DASHBOARD_API_URL: http://${{ vars.VPS_TAILNET_IP }}:8001
+      # tp-backend runs on the WEB box, not this one. Hence a second tailnet
+      # variable: WAREHOUSE_TAILNET_IP for postgres/prefect, WEB_TAILNET_IP for
+      # the dashboard API. Pointing both at one IP is what coupled them before.
+      DASHBOARD_API_URL: http://${{ vars.WEB_TAILNET_IP }}:8001
       ALERT_DISPATCH_SECRET: ${{ secrets.ALERT_DISPATCH_SECRET }}
       TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

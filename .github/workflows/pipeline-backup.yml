@@ -25,10 +25,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      PREFECT_API_URL: http://${{ vars.VPS_TAILNET_IP }}:4200/api
+      PREFECT_API_URL: http://${{ vars.WAREHOUSE_TAILNET_IP }}:4200/api
 
       # Postgres warehouse (VPS, over tailnet)
-      DB_HOST: ${{ vars.VPS_TAILNET_IP }}
+      DB_HOST: ${{ vars.WAREHOUSE_TAILNET_IP }}
       DB_PORT: "5432"
       DB_USER: ${{ secrets.DB_USER }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}

@@ -23,11 +23,11 @@ jobs:
     timeout-minutes: 45
     env:
       # Prefect (VPS, over tailnet)
-      PREFECT_API_URL: http://${{ vars.VPS_TAILNET_IP }}:4200/api
+      PREFECT_API_URL: http://${{ vars.WAREHOUSE_TAILNET_IP }}:4200/api
 
       # Postgres warehouse (VPS, over tailnet) - reads dbt_dev_silver,
       # writes raw.skill_extraction_log, then re-runs dbt.
-      DB_HOST: ${{ vars.VPS_TAILNET_IP }}
+      DB_HOST: ${{ vars.WAREHOUSE_TAILNET_IP }}
       DB_PORT: "5432"
       DB_USER: ${{ secrets.DB_USER }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
