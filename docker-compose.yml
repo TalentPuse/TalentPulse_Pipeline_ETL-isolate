@@ -6,6 +6,21 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
       POSTGRES_DB: ${DB_NAME:-warehouse}
+    # Tuned for a 4GB VPS shared with metabase/prefect/tp-backend. dbt runs its
+    # heaviest queries here (from the GHA runners over tailnet), so work_mem is
+    # the knob that matters most after shared_buffers.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=768MB
+      - -c
+      - work_mem=16MB
+      - -c
+      - maintenance_work_mem=128MB
+      - -c
+      - max_connections=50
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
@@ -38,6 +53,10 @@ services:
       MB_DB_PASS: ${POSTGRES_PASSWORD:-password}
       MB_DB_HOST: postgres
       JAVA_TIMEZONE: Asia/Ho_Chi_Minh
+      # Cap the JVM heap. Without -Xmx the JVM sizes its heap from the *host's*
+      # total RAM, not the container limit, and gets OOM-killed on a 4GB box.
+      # 768m heap + ~250m non-heap (metaspace/threads/direct) fits the 1G limit.
+      JAVA_OPTS: -Xmx768m -Xms256m -XX:+UseSerialGC
     ports:
       - "3000:3000"
     volumes:
@@ -48,7 +67,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1536M
+          memory: 1G
 
   prefect-server:
     image: prefecthq/prefect:2.16.5-python3.10
@@ -60,15 +79,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # Prefect 2 OSS has NO authentication. Bind to loopback only: CI reaches it
+    # via `tailscale serve --tcp=4200`, humans via the reverse proxy / SSH tunnel.
+    # Publishing 0.0.0.0:4200 puts an unauthenticated flow-run API on the public
+    # internet. See docs/gha-migration-runbook.md (b)(4).
     ports:
-      - "4200:4200"
+      - "127.0.0.1:4200:4200"
     restart: unless-stopped
     networks:
       - talentpulse
     deploy:
       resources:
         limits:
-          memory: 768M
+          memory: 512M
 
 networks:
   talentpulse:
