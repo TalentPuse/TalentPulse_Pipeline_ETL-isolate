@@ -1,3 +1,13 @@
+> **⚠️ STALE — DO NOT FOLLOW THIS DOCUMENT.**
+>
+> It describes the pre-2026-07-06 layout: 8 containers on the VPS, MinIO, and four
+> worker containers running the pipeline. None of that exists any more — the
+> pipeline runs on GitHub Actions runners and the VPS holds only Postgres, Prefect
+> and Metabase. Following the deployment steps here will not work.
+>
+> **Current architecture: [architect.md](architect.md).**
+> Kept only for historical context on the original design intent.
+
 # TalentPulse Pipeline — Architecture Documentation
 
 ## Table of Contents
