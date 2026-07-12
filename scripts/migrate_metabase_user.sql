@@ -7,13 +7,22 @@
 --
 -- Idempotent: safe to re-run on every migrate.
 
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'metabase_ro') THEN
-    CREATE ROLE metabase_ro WITH LOGIN PASSWORD 'metabase_ro_pw';
-  END IF;
-END
-$$;
+-- The password comes from psql's -v, never from this file: a credential written
+-- into a committed .sql is one you cannot rotate without a commit.
+--
+-- Note the \gexec rather than a DO $$ ... $$ block. psql does NOT substitute
+-- :'variables' inside dollar-quoted strings, so the obvious version silently sets
+-- the password to the literal text ":'ro_password'" and every login then fails
+-- for a reason nothing in the logs explains.
+--
+-- Create if absent, then always set the password — so this doubles as the
+-- rotation path.
+SELECT format('CREATE ROLE metabase_ro LOGIN PASSWORD %L', :'ro_password')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'metabase_ro')
+\gexec
+
+SELECT format('ALTER ROLE metabase_ro WITH LOGIN PASSWORD %L', :'ro_password')
+\gexec
 
 GRANT CONNECT ON DATABASE warehouse TO metabase_ro;
 

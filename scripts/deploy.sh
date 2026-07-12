@@ -16,7 +16,9 @@ echo "=== Pulling latest images ==="
 docker compose pull
 
 echo "=== Restarting services ==="
-docker compose up -d
+# --remove-orphans: an older VPS still has minio + 4 worker containers from
+# the pre-GHA architecture. Left running they eat ~4.5GB on a 4GB box.
+docker compose up -d --remove-orphans
 
 echo "=== Cleaning up old images ==="
 docker image prune -f

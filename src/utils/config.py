@@ -8,18 +8,25 @@ load_dotenv()
 
 class Config:
     # Database (PostgreSQL)
-    DB_USER: str = os.getenv("DB_USER", "admin")
-    DB_PASSWORD: str = os.getenv("DB_PASSWORD", "password")
+    #
+    # Secrets deliberately have NO default. `os.getenv("DB_PASSWORD", "password")`
+    # is how a deployment that forgot to set the variable connects anyway — to
+    # something, with a credential anyone can guess — instead of stopping. The
+    # values are checked where they are actually used (get_db_uri, MinioClient),
+    # not here, so that importing this module stays free of side effects.
+    DB_USER: str = os.getenv("DB_USER", "admin")          # a username is not a secret
+    DB_PASSWORD: str = os.getenv("DB_PASSWORD", "")
     DB_HOST: str = os.getenv("DB_HOST", "localhost")
     DB_PORT: str = os.getenv("DB_PORT", "5432")
     DB_NAME: str = os.getenv("DB_NAME", "warehouse")
 
-    # MinIO / S3 (also used for Cloudflare R2, which is S3-API compatible)
+    # S3-compatible object storage — Cloudflare R2 in production.
     S3_ENDPOINT_URL: str = os.getenv("S3_ENDPOINT_URL", "http://localhost:9000")
-    S3_ACCESS_KEY: str = os.getenv("S3_ACCESS_KEY", "minioadmin")
-    S3_SECRET_KEY: str = os.getenv("S3_SECRET_KEY", "minioadmin")
+    S3_ACCESS_KEY: str = os.getenv("S3_ACCESS_KEY", "")
+    S3_SECRET_KEY: str = os.getenv("S3_SECRET_KEY", "")
     S3_BUCKET_NAME: str = os.getenv("S3_BUCKET_NAME", "talentpulse-raw")
-    S3_REGION: str = os.getenv("S3_REGION", "us-east-1")
+    # "auto" is what R2 expects; "us-east-1" was a MinIO leftover.
+    S3_REGION: str = os.getenv("S3_REGION", "auto")
 
     # Keywords per source (comma-separated in env)
     VNW_KEYWORDS: list[str] = [
@@ -89,6 +96,12 @@ class Config:
 
     @classmethod
     def get_db_uri(cls) -> str:
+        if not cls.DB_PASSWORD:
+            raise RuntimeError(
+                "DB_PASSWORD is not set. Refusing to build a connection string "
+                "without it — a blank or defaulted database password is how a "
+                "misconfigured deploy quietly connects to the wrong thing."
+            )
         password = quote_plus(cls.DB_PASSWORD)
         return f"postgresql://{cls.DB_USER}:{password}@{cls.DB_HOST}:{cls.DB_PORT}/{cls.DB_NAME}"
 

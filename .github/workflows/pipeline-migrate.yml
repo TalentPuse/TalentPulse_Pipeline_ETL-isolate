@@ -34,6 +34,9 @@ jobs:
       DB_USER: ${{ secrets.DB_USER }}
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       DB_NAME: ${{ vars.DB_NAME || 'warehouse' }}
+      # Read-only role Metabase and the dashboard log in as. Kept out of the .sql
+      # so it can be rotated without a commit.
+      METABASE_RO_PASSWORD: ${{ secrets.METABASE_RO_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -64,7 +67,7 @@ jobs:
             # ADD COLUMN IF NOT EXISTS), so a real error here means the migration
             # is broken, not merely re-applied. With =0 psql swallowed it and the
             # job went green on a half-migrated schema.
-            PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$f"
+            PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME"               -v ON_ERROR_STOP=1 -v ro_password="$METABASE_RO_PASSWORD" -f "$f"
           done
 
       - name: Log in to GHCR

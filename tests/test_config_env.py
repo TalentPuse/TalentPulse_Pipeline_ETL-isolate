@@ -1,3 +1,4 @@
+from unittest import mock
 """Thorough tests for env-var-driven configuration.
 
 Covers: VNW_KEYWORDS, ITVIEC_KEYWORDS, ALLOWED_FUNCTION_IDS,
@@ -11,15 +12,27 @@ import src.utils.config as config_mod
 
 
 def _reload_config(env_overrides: dict):
-    """Reload config module with custom env vars, return fresh Config."""
-    for k, v in env_overrides.items():
-        os.environ[k] = v
-    try:
+    """Reload config with ONLY the given env vars set, and return a fresh Config.
+
+    The environment is cleared, not merely topped up, and `load_dotenv` is stubbed
+    out for the duration. Without both, config.py's module-level `load_dotenv()`
+    re-reads the developer's real `.env` on every reload and injects it into
+    os.environ — so a test asserting "the default value" instead sees whatever is
+    in that file. CI has no `.env`, so it passes there and fails only on the machine
+    of whoever actually has the project running: the worst possible place for a test
+    to be wrong.
+    """
+    # Patch dotenv at the SOURCE, not on config_mod: reloading config re-executes
+    # `from dotenv import load_dotenv`, which rebinds the name and overwrites a
+    # patch applied to the module attribute.
+    with mock.patch.dict(os.environ, env_overrides, clear=True), \
+         mock.patch("dotenv.load_dotenv", lambda *a, **k: None):
         importlib.reload(config_mod)
         return config_mod.config
-    finally:
-        for k in env_overrides:
-            os.environ.pop(k, None)
+    # Deliberately NOT reloading again on the way out: several tests below call
+    # into validators, which read the module-level `config` singleton, and expect
+    # to see the config this helper just built. The autouse `_restore_config`
+    # fixture puts the module back after each test.
 
 
 @pytest.fixture(autouse=True)

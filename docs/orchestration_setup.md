@@ -1,3 +1,11 @@
+> **⚠️ STALE — the commands in this file will fail.**
+>
+> It tells you to run `prefect-worker`, `alert-worker` and other containers that were
+> removed on 2026-07-06. The pipeline now runs on GitHub Actions runners; the VPS
+> hosts only Postgres, Prefect and Metabase.
+>
+> Current: **[architect.md](architect.md)** (system) · **[gha-migration-runbook.md](gha-migration-runbook.md)** (deploy).
+
 # Prefect Orchestration Setup
 
 Wires TalentPulse pipeline (listing → seed → crawl → parse → load) into 1 Prefect flow.

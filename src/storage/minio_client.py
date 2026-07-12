@@ -11,6 +11,15 @@ class MinioClient:
     Handles bucket creation and file upload/download.
     """
     def __init__(self):
+        # Fail here, not on the first upload. These credentials used to default to
+        # minioadmin/minioadmin — MinIO's well-known admin pair — so a deploy that
+        # forgot to set them still built a client happily and only broke later,
+        # with an opaque S3 error that said nothing about the real cause.
+        if not config.S3_ACCESS_KEY or not config.S3_SECRET_KEY:
+            raise RuntimeError(
+                "S3_ACCESS_KEY / S3_SECRET_KEY are not set. Refusing to build an "
+                "object-storage client without credentials."
+            )
         self.s3_client = boto3.client(
             's3',
             endpoint_url=config.S3_ENDPOINT_URL,

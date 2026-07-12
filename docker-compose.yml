@@ -4,7 +4,7 @@ services:
     container_name: talentpulse-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}"
       POSTGRES_DB: ${DB_NAME:-warehouse}
     # Tuned for a 4GB VPS shared with metabase/prefect/tp-backend. dbt runs its
     # heaviest queries here (from the GHA runners over tailnet), so work_mem is
@@ -50,7 +50,7 @@ services:
       MB_DB_DBNAME: metabase_app
       MB_DB_PORT: 5432
       MB_DB_USER: ${POSTGRES_USER:-admin}
-      MB_DB_PASS: ${POSTGRES_PASSWORD:-password}
+      MB_DB_PASS: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}"
       MB_DB_HOST: postgres
       JAVA_TIMEZONE: Asia/Ho_Chi_Minh
       # Cap the JVM heap. Without -Xmx the JVM sizes its heap from the *host's*
@@ -75,7 +75,7 @@ services:
     command: prefect server start --host 0.0.0.0 --port 4200
     environment:
       PREFECT_UI_API_URL: ${PREFECT_UI_API_URL:-https://perfect.talentpuse.io.vn/api}
-      PREFECT_SERVER_DATABASE_CONNECTION_URL: "postgresql+asyncpg://${POSTGRES_USER:-admin}:${DB_PASSWORD_ENCODED:-password}@postgres:5432/prefect"
+      PREFECT_SERVER_DATABASE_CONNECTION_URL: "postgresql+asyncpg://${POSTGRES_USER:-admin}:${DB_PASSWORD_ENCODED:?DB_PASSWORD_ENCODED must be set - url-encoded copy of POSTGRES_PASSWORD}@postgres:5432/prefect"
     depends_on:
       postgres:
         condition: service_healthy
