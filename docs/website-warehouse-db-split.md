@@ -43,31 +43,47 @@ over `dbt_transform/models/`). The dependency runs one way only.
 
 ## 2. Target
 
+**Decision (2026-07-12): one Postgres per box, one job each.**
+
 ```
-   WEB BOX (4GB)                          WAREHOUSE BOX (4GB)
-   ┌────────────────────────┐             ┌──────────────────────────┐
-   │ tp-backend      :8001  │             │ postgres        :5432    │
-   │ tp-frontend     :8002  │             │   warehouse DB:          │
-   │ tp-mcp          :8080  │             │     raw, dbt_dev_*       │
-   │ tp-latex               │             │ prefect-server  :4200    │
-   │                        │             │ metabase        :3000    │
-   │ postgres        :5432  │             └──────────────────────────┘
-   │   talentpulse DB:      │                          │
-   │     app         (RW)   │◀────── sync jobs ────────┘
-   │     user_alerts (RW)   │        one way, daily
-   │     public      (RW)   │
-   │     dbt_dev_*   (RO)   │
-   └────────────────────────┘
+   WEB BOX (8GB / 4vCPU)                WAREHOUSE BOX (4GB)
+   ┌──────────────────────────┐         ┌──────────────────────────────┐
+   │ tp-backend       :8001   │         │ postgres  :5432              │
+   │ tp-frontend      :8002   │         │   warehouse DB               │
+   │ tp-mcp           :8080   │         │     raw → bronze → silver    │
+   │ tp-latex                 │         │          → gold, feature     │
+   │                          │         │   (dbt owns it outright)     │
+   │ postgres  :5432          │         │                              │
+   │   talentpulse DB         │◀────────│ prefect   :4200              │
+   │     app, user_alerts,    │  sync   │ metabase  :3000              │
+   │     public       (RW)    │  daily  └──────────────────────────────┘
+   │     dbt_dev_*    (RO)    │  one way
+   └──────────────────────────┘
 ```
 
-- **Web DB owns user data.** The backend reads and writes it over a loopback
-  socket, as it does today — login, CV upload and chat stop traversing WireGuard.
-- **Warehouse DB owns job-market data.** dbt owns it outright.
-- **Sync is one-way, warehouse → web.** Nothing on the warehouse box ever reads
-  user data; alert dispatch already goes through the backend's HTTP API.
+The backend talks to its database over a **loopback socket (~0.1ms)**, exactly as
+it does today. Nothing in the request path crosses the network. The only cross-box
+traffic is the sync: a few MB, once a day, at 15:00, with nobody waiting on it.
 
-The website then survives a warehouse outage: users log in, browse jobs, chat and
-review applications against the last synced snapshot.
+**The sync is ONE WAY. There is no reverse channel, and there must not be.**
+
+Bidirectional sync means both sides can write the same row, which means conflict
+resolution, which has no correct answer and produces silent data loss. It is also
+unnecessary here — check the data flow:
+
+- warehouse → web: the job tables. Needed.
+- web → warehouse: **nothing**. Alert dispatch does not read user data from the
+  database; the pipeline calls the backend's HTTP API and the backend reads its own
+  DB. Metabase is the only thing that might want user numbers, and the answer there
+  is a read-only connection to the web DB, not a reverse sync.
+
+**Why a separate database and not just a separate schema:** `pg_dump` and
+`pg_restore` work at the *database* level. As long as `app` and `raw` share one
+database, restoring the warehouse rolls back user data — the exact failure this
+document exists to remove.
+
+**What this does not buy:** the web box is now a single point of failure for user
+data. That is what the daily `pg_dump` to R2 is for.
 
 ---
 
