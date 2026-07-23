@@ -1,11 +1,16 @@
 import gzip
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
 from src.parsers.topcv.detail_parser import TopCVDetailParser, TopCVParseError
 
 FIXTURE = Path(__file__).parent.parent.parent / "fixtures" / "topcv" / "detail_2114998.html.gz"
+
+# MinioClient() refuses to build without S3 credentials, so these parse-only
+# tests inject a stub instead of letting the parser construct a real client —
+# CI has no creds, and a local .env silently hid that.
 
 
 @pytest.fixture
@@ -14,7 +19,7 @@ def html() -> str:
 
 
 def test_parse_real_fixture(html):
-    detail = TopCVDetailParser().parse_html(html, source_job_id="2114998")
+    detail = TopCVDetailParser(minio=MagicMock()).parse_html(html, source_job_id="2114998")
     assert detail.source == "topcv"
     # job id comes from the arg, NOT identifier.value (which is the company id 246114)
     assert detail.source_job_id == "2114998"
@@ -39,7 +44,7 @@ def test_parse_real_fixture(html):
 
 def test_parse_missing_jobposting_raises():
     with pytest.raises(TopCVParseError):
-        TopCVDetailParser().parse_html("<html>no json-ld</html>")
+        TopCVDetailParser(minio=MagicMock()).parse_html("<html>no json-ld</html>")
 
 
 def test_source_url_falls_back_when_no_canonical_link():
@@ -57,5 +62,5 @@ def test_source_url_falls_back_when_no_canonical_link():
     </script>
     </head><body></body></html>
     """
-    detail = TopCVDetailParser().parse_html(html, source_job_id="999")
+    detail = TopCVDetailParser(minio=MagicMock()).parse_html(html, source_job_id="999")
     assert detail.source_url == "https://www.topcv.vn/viec-lam/999.html"
