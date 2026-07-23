@@ -1,0 +1,5 @@
+# TopCV worker: base deps + Playwright + Prefect (not in base image).
+-r base-requirements.txt
+playwright>=1.44.0
+prefect==2.16.5
+griffe<1.0

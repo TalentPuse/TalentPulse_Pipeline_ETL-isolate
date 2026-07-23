@@ -1,0 +1,14 @@
+FROM mcr.microsoft.com/playwright/python:jammy
+RUN ln -sf /usr/share/zoneinfo/Asia/Ho_Chi_Minh /etc/localtime && echo "Asia/Ho_Chi_Minh" > /etc/timezone
+ENV TZ=Asia/Ho_Chi_Minh
+WORKDIR /app
+COPY orchestration/base-requirements.txt orchestration/topcv-requirements.txt ./
+RUN pip install --no-cache-dir -r topcv-requirements.txt
+RUN playwright install chromium
+ENV PYTHONPATH=/app
+COPY src/ ./src/
+COPY orchestration/ ./orchestration/
+COPY dbt_transform/ ./dbt_transform/
+COPY configs/ ./configs/
+COPY scripts/ ./scripts/
+RUN cd dbt_transform && dbt deps --profiles-dir .

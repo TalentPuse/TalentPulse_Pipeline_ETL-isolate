@@ -54,6 +54,8 @@ jobs:
             dockerfile: orchestration/Dockerfile.worker.itviec
           - image_suffix: linkedin
             dockerfile: orchestration/Dockerfile.worker.linkedin
+          - image_suffix: topcv
+            dockerfile: orchestration/Dockerfile.worker.topcv
 
     steps:
       - name: Checkout code
