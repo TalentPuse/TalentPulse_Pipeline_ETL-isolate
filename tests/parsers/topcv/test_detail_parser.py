@@ -18,7 +18,7 @@ def test_parse_real_fixture(html):
     assert detail.source == "topcv"
     # job id comes from the arg, NOT identifier.value (which is the company id 246114)
     assert detail.source_job_id == "2114998"
-    assert detail.source_url == "https://www.topcv.vn/viec-lam/2114998.html"
+    assert detail.source_url == "https://www.topcv.vn/viec-lam/data-engineer-junior-middle/2114998.html"
     assert detail.title == "Data Engineer (Junior/Middle)"
     assert "VIETTEL" in (detail.company_name or "")
     assert detail.parser_version == "topcv-v1"
@@ -33,9 +33,29 @@ def test_parse_real_fixture(html):
     assert len(detail.locations) == 1
     assert detail.locations[0]["city"] == "Hà Nội"
     assert detail.job_description_text and "Mô tả công việc" in detail.job_description_text
-    assert detail.is_expired in (True, False)  # validThrough 2026-08-04; date-dependent per plan NOTE
+    # TODO: fixture validThrough 2026-08-04 — revisit after that date
+    assert detail.is_expired is False
 
 
 def test_parse_missing_jobposting_raises():
     with pytest.raises(TopCVParseError):
         TopCVDetailParser().parse_html("<html>no json-ld</html>")
+
+
+def test_source_url_falls_back_when_no_canonical_link():
+    html = """
+    <html><head>
+    <script type="application/ld+json">
+    {
+        "@type": "JobPosting",
+        "title": "Fallback Job",
+        "hiringOrganization": {"@type": "Organization", "name": "Acme"},
+        "baseSalary": {"@type": "MonetaryAmount", "currency": "VND", "value": {"@type": "QuantitativeValue", "value": "Thoả thuận"}},
+        "datePosted": "2026-01-01",
+        "validThrough": "2099-01-01"
+    }
+    </script>
+    </head><body></body></html>
+    """
+    detail = TopCVDetailParser().parse_html(html, source_job_id="999")
+    assert detail.source_url == "https://www.topcv.vn/viec-lam/999.html"

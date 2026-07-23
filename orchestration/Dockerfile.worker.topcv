@@ -4,6 +4,17 @@ ENV TZ=Asia/Ho_Chi_Minh
 WORKDIR /app
 COPY orchestration/base-requirements.txt orchestration/topcv-requirements.txt ./
 RUN pip install --no-cache-dir -r topcv-requirements.txt
+# Deliberately NOT --with-deps. The mcr.microsoft.com/playwright base image above
+# already ships every OS library the browsers need — that is the whole reason to
+# use it. --with-deps re-runs `apt-get update` and reinstalls that same set,
+# which added 15-20 minutes to a cold build: the Ubuntu mirrors crawl (observed
+# ~5 KB/s), and none of it changes the resulting image.
+#
+# The browser binary IS still fetched here, because itviec-requirements.txt asks
+# for playwright>=1.44.0, so pip may install a version newer than the one baked
+# into the image — and Playwright resolves browsers by a revision tied to its own
+# version, so the pre-installed chromium would not match. Pin both the image tag
+# and the playwright version to the same release and this line can go entirely.
 RUN playwright install chromium
 ENV PYTHONPATH=/app
 COPY src/ ./src/

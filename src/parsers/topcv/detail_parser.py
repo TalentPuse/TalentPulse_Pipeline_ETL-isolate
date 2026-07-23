@@ -92,6 +92,26 @@ def _parse_skills(skills) -> list[dict]:
     return [{"name": s.strip()} for s in skills.split(",") if s.strip()]
 
 
+def _extract_canonical_url(html: str) -> str | None:
+    """Extract the canonical URL from a TopCV detail page's <link rel="canonical"> tag.
+
+    TopCV's real detail URLs are shaped `https://www.topcv.vn/viec-lam/{slug}/{id}.html`;
+    the canonical link is the only place in the page that carries the slug. Handles both
+    `rel` before `href` and `href` before `rel` attribute ordering. Any query string on
+    the href is stripped.
+    """
+    match = re.search(
+        r'<link[^>]+rel=["\']canonical["\'][^>]+href=["\']([^"\']+)["\']', html, re.I,
+    )
+    if match is None:
+        match = re.search(
+            r'<link[^>]+href=["\']([^"\']+)["\'][^>]+rel=["\']canonical["\']', html, re.I,
+        )
+    if match is None:
+        return None
+    return match.group(1).split("?", 1)[0]
+
+
 class TopCVDetailParser(MinIOParser):
     VERSION = "topcv-v1"
     HTML_PREFIX = "details/topcv/html/"
@@ -130,7 +150,11 @@ class TopCVDetailParser(MinIOParser):
                     pass
 
         job_id = source_job_id or ""
-        source_url = f"https://www.topcv.vn/viec-lam/{job_id}.html" if job_id else None
+        canonical_url = _extract_canonical_url(html)
+        if canonical_url:
+            source_url = canonical_url
+        else:
+            source_url = f"https://www.topcv.vn/viec-lam/{job_id}.html" if job_id else None
 
         return JobDetail(
             source="topcv",
