@@ -53,7 +53,13 @@ class CrawlLog:
         re-crawled — same queue outcome as the is_fresh guard, without the
         round-trips. Returns the number of affected rows.
         """
-        rows = [(job_id, source, url) for job_id, url in items]
+        # Dedup by job_id: the same job often appears under several search
+        # keywords, so `items` can carry the same (source, job_id) twice.
+        # A single INSERT ... ON CONFLICT DO UPDATE cannot touch one conflict
+        # key twice in the same command (CardinalityViolation), so collapse
+        # duplicates here, keeping the last url seen.
+        deduped = {job_id: url for job_id, url in items}
+        rows = [(job_id, source, url) for job_id, url in deduped.items()]
         if not rows:
             return 0
         with self._conn() as conn, conn.cursor() as cur:

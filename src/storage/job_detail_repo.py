@@ -98,6 +98,10 @@ class JobDetailRepo:
         rows = [self._row_from_payload(p) for p in payloads]
         if not rows:
             return 0
+        # A single INSERT ... ON CONFLICT DO UPDATE cannot touch one conflict
+        # key twice in the same command, so collapse any duplicate
+        # (source, source_job_id) in this batch, keeping the last payload.
+        rows = list({(r["source"], r["source_job_id"]): r for r in rows}.values())
         # executemany() sends one INSERT per row — thousands of tailnet
         # round-trips, which is what made load_warehouse crawl. execute_values
         # batches rows into a single multi-row INSERT (one round-trip per page).
