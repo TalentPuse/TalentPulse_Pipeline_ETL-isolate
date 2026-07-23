@@ -69,10 +69,18 @@ def run_normalizer() -> str:
 def run_dbt(dbt_dir: str = "/app/dbt_transform") -> str:
     """Run dbt seed + run, with full-refresh for fct_jobs_daily."""
     logger = get_run_logger()
+    # Note the `+` graph operator on both lines. fct_jobs_daily is incremental
+    # and built with --full-refresh in its own pass, so it is excluded from the
+    # bulk run. But models downstream of it (e.g. mart_skill_trend, which
+    # ref()s fct_jobs_daily) must be excluded too — otherwise the bulk run tries
+    # to build them before fct_jobs_daily exists and, on a fresh warehouse,
+    # fails with `relation "dbt_dev_gold.fct_jobs_daily" does not exist`.
+    # `fct_jobs_daily+` = fct_jobs_daily and all its descendants, so the second
+    # pass builds the fact first and its dependents right after, in DAG order.
     cmds = [
         "dbt seed",
-        "dbt run --exclude fct_jobs_daily",
-        "dbt run --select fct_jobs_daily --full-refresh",
+        "dbt run --exclude fct_jobs_daily+",
+        "dbt run --select fct_jobs_daily+ --full-refresh",
     ]
     for cmd in cmds:
         full_cmd = f"{cmd} --profiles-dir . --project-dir {dbt_dir}"
