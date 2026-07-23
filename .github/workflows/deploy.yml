@@ -40,7 +40,7 @@ jobs:
     name: Build & Push Docker Images
     runs-on: ubuntu-latest
     needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/develop'
     permissions:
       contents: read
       packages: write
@@ -94,7 +94,7 @@ jobs:
     name: Deploy to Server
     runs-on: [self-hosted, Linux, X64, talentpulse_pa]
     needs: build-and-push
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/develop'
     timeout-minutes: 20
 
     steps:
