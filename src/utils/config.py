@@ -84,7 +84,7 @@ class Config:
 
     # Sources that skip focus validation entirely
     SKIP_FOCUS_SOURCES: set[str] = {
-        s.strip() for s in os.getenv("SKIP_FOCUS_SOURCES", "itviec").split(",") if s.strip()
+        s.strip() for s in os.getenv("SKIP_FOCUS_SOURCES", "itviec,topcv").split(",") if s.strip()
     }
 
     LOCATIONS = ["Ho Chi Minh"]

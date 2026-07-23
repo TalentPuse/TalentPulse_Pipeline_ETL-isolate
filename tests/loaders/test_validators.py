@@ -493,3 +493,32 @@ class TestValidateLinkedIn:
         result = validate(p)
         assert result is not None
         assert result[0] == "OUT_OF_FOCUS"
+
+
+# ===== topcv: skips focus validation (mirrors itviec) =====
+def test_topcv_skips_focus_and_loads_with_industry_job_function(monkeypatch):
+    """TopCV job_function is an industry string (no focus keyword); it must still
+    pass validate() because topcv is in SKIP_FOCUS_SOURCES — the focused keyword
+    search is the filter, not job_function. Monkeypatched so the assertion does
+    not depend on the ambient .env value."""
+    monkeypatch.setattr(config, "SKIP_FOCUS_SOURCES", {"itviec", "topcv"})
+    payload = {
+        "source": "topcv",
+        "source_job_id": "2114998",
+        "title": "Data Engineer (Junior/Middle)",
+        "company_name": "VIETTEL DIGITAL SERVICES",
+        "job_function": "IT phần mềm, Công nghệ thông tin",  # not a focus keyword
+    }
+    assert validate(payload) is None
+
+
+def test_non_skip_source_still_rejects_industry_job_function():
+    """Guard: the skip only applies to configured sources, not universally."""
+    payload = {
+        "source": "someboard",
+        "source_job_id": "1",
+        "title": "Data Engineer",
+        "company_name": "ACME",
+        "job_function": "IT phần mềm, Công nghệ thông tin",
+    }
+    assert validate(payload) == ("OUT_OF_FOCUS", "function='IT phần mềm, Công nghệ thông tin' (string, no keyword match)")
