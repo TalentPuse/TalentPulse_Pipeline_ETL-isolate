@@ -16,3 +16,8 @@ def test_get_db_uri(monkeypatch):
     
     expected_uri = "postgresql://test_user:test_pass@testhost:5432/test_db"
     assert uri == expected_uri, f"Expected {expected_uri}, got {uri}"
+
+
+def test_topcv_keywords_default():
+    from src.utils.config import config
+    assert config.TOPCV_KEYWORDS == ["data-engineer", "ai-engineer", "data-analyst"]

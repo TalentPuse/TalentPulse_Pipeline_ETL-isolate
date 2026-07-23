@@ -38,6 +38,9 @@ class Config:
     ITVIEC_KEYWORDS: list[str] = [
         k.strip() for k in os.getenv("ITVIEC_KEYWORDS", "data-engineer,ai-engineer,data-analyst").split(",") if k.strip()
     ]
+    TOPCV_KEYWORDS: list[str] = [
+        k.strip() for k in os.getenv("TOPCV_KEYWORDS", "data-engineer,ai-engineer,data-analyst").split(",") if k.strip()
+    ]
 
     # VietnamWorks jobFunctionV3Id filter (comma-separated in env)
     # 25 = "Business/System Analysis", 27 = "Data Engineer/Data Analyst/AI"
