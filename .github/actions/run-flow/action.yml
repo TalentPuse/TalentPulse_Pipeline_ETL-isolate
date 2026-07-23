@@ -5,7 +5,7 @@ description: >
   Postgres/Prefect/dashboard services. Used by all pipeline-*.yml workflows
   so the tailscale/docker/env wiring lives in exactly one place (DRY).
 
-  NOTE: composite actions cannot read `${{ secrets.* }}` directly. Tailscale
+  NOTE: composite actions cannot read secrets.* directly. Tailscale
   OAuth credentials and the GHCR token must be passed in as inputs from the
   calling workflow. The flow's own runtime env (DB_HOST, S3_*, etc.) is NOT
   passed as inputs — it is inherited from the calling job's `env:` block and
