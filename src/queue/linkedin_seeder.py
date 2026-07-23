@@ -23,15 +23,16 @@ def seed_from_job_ids(job_ids: list[str], log: CrawlLog | None = None) -> dict:
     log = log or CrawlLog()
     counters = {"enqueued": 0, "skipped": 0}
 
+    items: list[tuple[str, str]] = []
     for job_id in job_ids:
         job_id = str(job_id).strip()
         if not job_id:
             continue
-        url = VIEW_URL.format(job_id=job_id)
-        if log.enqueue(job_id, url, source="linkedin"):
-            counters["enqueued"] += 1
-        else:
-            counters["skipped"] += 1
+        items.append((job_id, VIEW_URL.format(job_id=job_id)))
+
+    # One batch round-trip instead of a connection + INSERT per id (see
+    # CrawlLog.enqueue_many).
+    counters["enqueued"] = log.enqueue_many(items, source="linkedin")
 
     logger.info(f"LinkedIn seed result: {counters}")
     return counters

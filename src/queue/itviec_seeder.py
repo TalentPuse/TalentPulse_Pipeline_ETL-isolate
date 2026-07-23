@@ -35,17 +35,18 @@ def seed_from_urls(urls: list[str], log: CrawlLog | None = None) -> dict:
     log = log or CrawlLog()
     counters = {"enqueued": 0, "skipped": 0, "rejected_url": 0}
 
+    items: list[tuple[str, str]] = []
     for url in urls:
         job_id = extract_job_id(url)
         if not job_id:
             counters["rejected_url"] += 1
             logger.debug(f"Rejected URL (no job_id): {url}")
             continue
+        items.append((job_id, url))
 
-        if log.enqueue(job_id, url, source="itviec"):
-            counters["enqueued"] += 1
-        else:
-            counters["skipped"] += 1
+    # One batch round-trip instead of a connection + INSERT per URL (see
+    # CrawlLog.enqueue_many) — the per-row path made seeding slow over the tailnet.
+    counters["enqueued"] = log.enqueue_many(items, source="itviec")
 
     logger.info(f"ITviec seed result: {counters}")
     return counters
