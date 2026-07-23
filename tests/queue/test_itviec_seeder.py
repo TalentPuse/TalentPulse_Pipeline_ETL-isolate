@@ -73,9 +73,12 @@ class TestItviecUrlRegex:
 
 
 class TestSeedFromUrls:
+    # The seeder now collects valid (job_id, url) pairs and enqueues them in a
+    # single CrawlLog.enqueue_many() call, so `enqueued` reflects that batch's
+    # return value. URL-level rejects (bad regex) are still counted per row.
     def test_enqueues_valid_urls(self):
         log = MagicMock()
-        log.enqueue.return_value = True
+        log.enqueue_many.return_value = 2
 
         urls = [
             "https://itviec.com/it-jobs/data-engineer-acme-4611",
@@ -84,64 +87,40 @@ class TestSeedFromUrls:
         result = seed_from_urls(urls, log=log)
 
         assert result["enqueued"] == 2
-        assert result["skipped"] == 0
         assert result["rejected_url"] == 0
-        assert log.enqueue.call_count == 2
-
-        first_call = log.enqueue.call_args_list[0]
-        assert first_call[0] == ("4611", urls[0])
-        assert first_call[1] == {"source": "itviec"}
+        log.enqueue_many.assert_called_once_with(
+            [("4611", urls[0]), ("2549", urls[1])], source="itviec"
+        )
 
     def test_counts_rejected_urls(self):
         log = MagicMock()
+        log.enqueue_many.return_value = 1
         urls = [
             "https://itviec.com/it-jobs/valid-job-111",
             "https://evil.com/fake-4611",
             "not-even-a-url",
         ]
-        log.enqueue.return_value = True
         result = seed_from_urls(urls, log=log)
 
         assert result["enqueued"] == 1
         assert result["rejected_url"] == 2
-
-    def test_counts_skipped_when_enqueue_returns_false(self):
-        log = MagicMock()
-        log.enqueue.return_value = False  # already fresh
-
-        urls = ["https://itviec.com/it-jobs/dup-job-999"]
-        result = seed_from_urls(urls, log=log)
-
-        assert result["enqueued"] == 0
-        assert result["skipped"] == 1
+        log.enqueue_many.assert_called_once_with([("111", urls[0])], source="itviec")
 
     def test_empty_list(self):
         log = MagicMock()
+        log.enqueue_many.return_value = 0
         result = seed_from_urls([], log=log)
 
-        assert result == {"enqueued": 0, "skipped": 0, "rejected_url": 0}
-        log.enqueue.assert_not_called()
+        assert result["enqueued"] == 0
+        assert result["rejected_url"] == 0
+        log.enqueue_many.assert_called_once_with([], source="itviec")
 
     def test_all_invalid(self):
         log = MagicMock()
+        log.enqueue_many.return_value = 0
         urls = ["bad", "worse", "https://other.com/123"]
         result = seed_from_urls(urls, log=log)
 
         assert result["rejected_url"] == 3
         assert result["enqueued"] == 0
-        log.enqueue.assert_not_called()
-
-    def test_mixed_enqueue_and_skip(self):
-        log = MagicMock()
-        log.enqueue.side_effect = [True, False, True]
-
-        urls = [
-            "https://itviec.com/it-jobs/job-a-111",
-            "https://itviec.com/it-jobs/job-b-222",
-            "https://itviec.com/it-jobs/job-c-333",
-        ]
-        result = seed_from_urls(urls, log=log)
-
-        assert result["enqueued"] == 2
-        assert result["skipped"] == 1
-        assert result["rejected_url"] == 0
+        log.enqueue_many.assert_called_once_with([], source="itviec")
