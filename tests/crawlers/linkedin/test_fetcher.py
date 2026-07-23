@@ -2,7 +2,12 @@
 import pytest
 import requests
 
-from src.crawlers.linkedin.fetcher import BlockedError, Fetcher, TransientError
+from src.crawlers.linkedin.fetcher import (
+    MAX_BACKOFF_SECONDS,
+    BlockedError,
+    Fetcher,
+    TransientError,
+)
 
 
 URL = "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/12345"
@@ -97,12 +102,22 @@ class TestRetry:
 
     def test_429_respects_retry_after_header(self, requests_mock):
         requests_mock.get(URL, [
-            {"status_code": 429, "headers": {"Retry-After": "200"}},
+            {"status_code": 429, "headers": {"Retry-After": "45"}},
             {"status_code": 200, "text": "<html>ok</html>"},
         ])
         f, sleeps = make_fetcher()
         f.fetch(URL)
-        assert sleeps[0] >= 200
+        assert sleeps[0] == 45  # longer than the schedule's 20s, under the cap
+
+    def test_retry_after_is_capped(self, requests_mock):
+        """A huge Retry-After must not blow the crawl's time budget."""
+        requests_mock.get(URL, [
+            {"status_code": 429, "headers": {"Retry-After": "600"}},
+            {"status_code": 200, "text": "<html>ok</html>"},
+        ])
+        f, sleeps = make_fetcher()
+        f.fetch(URL)
+        assert sleeps[0] == MAX_BACKOFF_SECONDS
 
     def test_429_exhausted_raises_transient(self, requests_mock):
         requests_mock.get(URL, status_code=429)
@@ -110,7 +125,7 @@ class TestRetry:
         with pytest.raises(TransientError) as exc:
             f.fetch(URL)
         assert exc.value.status == 429
-        assert len(sleeps) == 3
+        assert len(sleeps) == 2
 
     def test_503_retries(self, requests_mock):
         requests_mock.get(URL, [

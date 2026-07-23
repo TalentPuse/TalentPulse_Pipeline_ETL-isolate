@@ -19,7 +19,10 @@ jobs:
   run:
     name: Run linkedin-pipeline (run-once)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # Must stay ABOVE listing (~12m) + detail budget (LINKEDIN_DETAIL_MAX_SECONDS,
+    # 20m) + parse/load/normalize/dbt/alerts (~10m). At 45m the job was killed
+    # mid-detail-crawl and nothing downstream ever ran.
+    timeout-minutes: 75
     env:
       # Prefect (VPS, over tailnet)
       PREFECT_API_URL: http://${{ vars.WAREHOUSE_TAILNET_IP }}:4200/api
@@ -43,6 +46,11 @@ jobs:
       LINKEDIN_TITLE_KEYWORDS: ${{ vars.LINKEDIN_TITLE_KEYWORDS || 'Data Engineer,Data Analyst,AI Engineer,Data Scientist,Business Analyst' }}
       LINKEDIN_GEO_ID: ${{ vars.LINKEDIN_GEO_ID || '104195383' }}
       LINKEDIN_RATE_SECONDS: ${{ vars.LINKEDIN_RATE_SECONDS || '3.0' }}
+      # Detail crawl stops itself after this many seconds so the rest of the
+      # flow (parse -> load -> dbt -> alerts) always gets to run. Leftover
+      # queue rows stay 'pending' for the next scheduled run.
+      LINKEDIN_DETAIL_MAX_SECONDS: ${{ vars.LINKEDIN_DETAIL_MAX_SECONDS || '1200' }}
+      CRAWL_STALE_CLAIM_MINUTES: ${{ vars.CRAWL_STALE_CLAIM_MINUTES || '120' }}
       FOCUS_KEYWORDS: ${{ vars.FOCUS_KEYWORDS || 'data engineer,data analyst,ai,machine learning,data science,data scientist,big data,analytics,business development,business analyst,technical sales' }}
       SKIP_FOCUS_SOURCES: ${{ vars.SKIP_FOCUS_SOURCES || 'itviec' }}
 

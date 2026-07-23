@@ -67,6 +67,13 @@ class Config:
     LINKEDIN_GEO_ID: str = os.getenv("LINKEDIN_GEO_ID", "104195383")
     LINKEDIN_RATE_SECONDS: float = float(os.getenv("LINKEDIN_RATE_SECONDS", "3.0"))
     LINKEDIN_PROXY_URL: str | None = os.getenv("LINKEDIN_PROXY_URL")
+    # Wall-clock budget for one detail-crawl task. The GHA job that runs this
+    # pipeline has its own (harder) timeout; when the crawl overruns, the whole
+    # job is killed and NOTHING downstream runs — no parse, no load, no alerts.
+    # Stopping the crawl on our own deadline keeps whatever was crawled.
+    LINKEDIN_DETAIL_MAX_SECONDS: int = int(os.getenv("LINKEDIN_DETAIL_MAX_SECONDS", "1200"))
+    # Rows left in 'in_progress' by a killed run are requeued after this long.
+    CRAWL_STALE_CLAIM_MINUTES: int = int(os.getenv("CRAWL_STALE_CLAIM_MINUTES", "120"))
 
     LINKEDIN_TITLE_KEYWORDS: set[str] = {
         k.strip().lower() for k in os.getenv(

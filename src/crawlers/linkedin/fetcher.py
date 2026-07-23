@@ -20,13 +20,21 @@ class TransientError(Exception):
         self.status = status
 
 
+# Backoff budget per job, NOT per crawl session. The old 60/120/300 schedule
+# let a single rate-limited job burn 8 minutes of sleep; a handful of them ate
+# the whole CI job window and the run was killed before parse/load ever ran.
+# LinkedIn's guest API rate-limit does not clear in seconds anyway — better to
+# give up quickly and leave the job pending for the next scheduled run.
 _BACKOFF = {
-    429: [60, 120, 300],
-    999: [60, 120, 300],
-    503: [10, 30, 90],
-    "5xx": [5, 15, 45],
-    "timeout": [10, 30, 60],
+    429: [20, 60],
+    999: [20, 60],
+    503: [10, 30],
+    "5xx": [5, 15],
+    "timeout": [5, 15],
 }
+
+# Upper bound on any single sleep, including a server-sent Retry-After.
+MAX_BACKOFF_SECONDS = 60
 
 _BLOCK_KEYWORDS = (
     "authwall", "sign in", "join now", "captcha",
@@ -90,6 +98,7 @@ class Fetcher:
                 ra = resp.headers.get("Retry-After")
                 if ra and ra.isdigit():
                     wait = max(wait, int(ra))
+            wait = min(wait, MAX_BACKOFF_SECONDS)
             logger.warning(f"status {status} on {url}, sleeping {wait}s (attempt {attempt})")
             self._sleep(wait)
             attempt += 1

@@ -84,6 +84,8 @@ runs:
           -e LINKEDIN_TITLE_KEYWORDS \
           -e LINKEDIN_GEO_ID \
           -e LINKEDIN_RATE_SECONDS \
+          -e LINKEDIN_DETAIL_MAX_SECONDS \
+          -e CRAWL_STALE_CLAIM_MINUTES \
           -e SKIP_FOCUS_SOURCES \
           -e DASHBOARD_API_URL \
           -e ALERT_DISPATCH_SECRET \

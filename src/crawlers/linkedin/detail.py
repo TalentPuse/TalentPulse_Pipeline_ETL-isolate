@@ -29,6 +29,7 @@ class LinkedInDetailCrawler:
         run_id: str | None = None,
         rate_limiter: TokenBucket | None = None,
         breaker: CircuitBreaker | None = None,
+        max_seconds: int | None = None,
     ):
         self.log = log
         self.fetcher = fetcher or Fetcher()
@@ -38,6 +39,7 @@ class LinkedInDetailCrawler:
         rate = 1.0 / config.LINKEDIN_RATE_SECONDS
         self.rate_limiter = rate_limiter or TokenBucket(rate_per_sec=rate, burst=1)
         self.breaker = breaker or CircuitBreaker()
+        self.max_seconds = config.LINKEDIN_DETAIL_MAX_SECONDS if max_seconds is None else max_seconds
 
     def _object_key(self, job_id: str) -> str:
         return f"details/linkedin/html/{self.run_id}/{job_id}.html.gz"
@@ -78,9 +80,20 @@ class LinkedInDetailCrawler:
             logger.warning("kill switch active before start, aborting")
             return counters
 
+        started = time.monotonic()
+        deadline = started + self.max_seconds if self.max_seconds else None
+
         processed = 0
         while True:
             if max_jobs is not None and processed >= max_jobs:
+                break
+            if deadline is not None and time.monotonic() >= deadline:
+                # Leave the rest pending — requeue_stale()/the next run picks
+                # them up. Returning here lets parse/load/dbt/alerts still run
+                # on what we did crawl instead of the CI job being killed.
+                logger.warning(
+                    f"time budget of {self.max_seconds}s exhausted after {processed} jobs, stopping"
+                )
                 break
             if safety.is_killed():
                 logger.warning("kill switch active, stopping")
@@ -109,5 +122,6 @@ class LinkedInDetailCrawler:
 
             jitter_sleep(config.LINKEDIN_RATE_SECONDS)
 
-        logger.info(f"LinkedIn detail run finished: {counters}")
+        elapsed = int(time.monotonic() - started)
+        logger.info(f"LinkedIn detail run finished in {elapsed}s: {counters}")
         return counters

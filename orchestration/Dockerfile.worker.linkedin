@@ -3,6 +3,12 @@ WORKDIR /app
 COPY orchestration/base-requirements.txt orchestration/worker-requirements.txt ./
 RUN pip install --no-cache-dir -r worker-requirements.txt
 ENV PYTHONPATH=/app
+# Attach Prefect's log handler to the crawlers' stdlib loggers. Without this
+# every logger.info() under src/ is swallowed, so a stalled detail crawl looks
+# like total silence in the CI log — which is how the 2026-07-23 timeout went
+# 30 minutes without a single progress line.
+ENV PREFECT_LOGGING_EXTRA_LOGGERS=src
+ENV PYTHONUNBUFFERED=1
 COPY src/ ./src/
 COPY orchestration/ ./orchestration/
 COPY dbt_transform/ ./dbt_transform/

@@ -53,12 +53,27 @@ def seed_queue(job_ids: list[str]) -> dict:
     return result
 
 
-@task(name="linkedin_detail_crawl", retries=1, timeout_seconds=7200)
+# timeout_seconds is a backstop only: the crawler stops itself on
+# config.LINKEDIN_DETAIL_MAX_SECONDS. Keep this ABOVE that budget but BELOW the
+# workflow's timeout-minutes, or the GHA job dies before the flow can finish
+# parse/load/dbt/alerts (which is exactly what happened on 2026-07-23).
+@task(name="linkedin_detail_crawl", retries=1, timeout_seconds=1800)
 def detail_crawl(max_jobs: int | None = None) -> dict:
+    logger = get_run_logger()
     t0 = time.time()
-    crawler = LinkedInDetailCrawler(log=CrawlLog(), minio=MinioClient())
-    result = crawler.run(max_jobs=max_jobs)
+    log = CrawlLog()
+    requeued = log.requeue_stale(
+        source="linkedin", older_than_minutes=config.CRAWL_STALE_CLAIM_MINUTES
+    )
+    if requeued:
+        logger.info(f"Requeued {requeued} stale in_progress rows from a previous killed run")
+    crawler = LinkedInDetailCrawler(log=log, minio=MinioClient())
+    try:
+        result = crawler.run(max_jobs=max_jobs)
+    finally:
+        log.close()
     dur = time.time() - t0
+    logger.info(f"Detail crawl done in {fmt_duration(dur)}: {result}")
     create_markdown_artifact(
         markdown=counters_table("linkedin", "detail_crawl", result, dur),
         key="linkedin-detail-crawl",

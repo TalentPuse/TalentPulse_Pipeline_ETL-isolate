@@ -181,6 +181,33 @@ class TestRun:
         counters = crawler.run(max_jobs=2)
         assert counters["success"] == 2
 
+    def test_run_stops_on_time_budget(self, monkeypatch):
+        """The crawl must give up on its own deadline, not run until the CI job dies."""
+        monkeypatch.setattr("src.crawlers.linkedin.detail.jitter_sleep", lambda *a, **k: None)
+        monkeypatch.delenv("CRAWLER_KILL_SWITCH", raising=False)
+
+        log = MagicMock()
+        log.claim_next.return_value = (JOB_ID, URL)  # queue never drains
+        fetcher = MagicMock()
+        fetcher.fetch.return_value = (200, LONG_HTML, 100)
+        breaker = MagicMock()
+        breaker.is_open.return_value = False
+
+        # start, deadline check #1, #2, #3 (over budget), final elapsed log
+        clock = iter([0.0, 5.0, 20.0, 40.0, 40.0])
+        monkeypatch.setattr(
+            "src.crawlers.linkedin.detail.time.monotonic", lambda: next(clock)
+        )
+
+        crawler = LinkedInDetailCrawler(
+            log=log, fetcher=fetcher, minio=MagicMock(), run_id="testrun",
+            rate_limiter=MagicMock(), breaker=breaker, max_seconds=30,
+        )
+        counters = crawler.run()
+
+        assert counters["success"] == 2  # stopped at the 40s > 30s budget check
+        assert log.claim_next.call_count == 2
+
     def test_run_no_pending_jobs(self, monkeypatch):
         monkeypatch.setattr("src.crawlers.linkedin.detail.jitter_sleep", lambda *a, **k: None)
         monkeypatch.delenv("CRAWLER_KILL_SWITCH", raising=False)
