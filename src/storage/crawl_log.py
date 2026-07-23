@@ -5,7 +5,7 @@ v2: composite PK (source, job_id) for multi-source support.
 import logging
 
 import psycopg2
-from psycopg2.extras import RealDictCursor
+from psycopg2.extras import RealDictCursor, execute_values
 
 from src.storage.db import pg_connection
 from src.utils.config import config
@@ -41,6 +41,39 @@ class CrawlLog:
                 (job_id, source, url),
             )
             return cur.rowcount > 0
+
+    def enqueue_many(self, items: "list[tuple[str, str]]", source: str = "vietnamworks") -> int:
+        """Batch-enqueue (job_id, url) pairs in ONE round-trip.
+
+        The per-row enqueue() opens a fresh connection and runs is_fresh() +
+        INSERT for every URL — over the tailnet that made seeding 236 URLs take
+        ~13 minutes. This sends a single execute_values INSERT on one
+        connection instead. The ON CONFLICT CASE keeps rows already in
+        'success'/'in_progress' untouched, so fresh jobs are still not
+        re-crawled — same queue outcome as the is_fresh guard, without the
+        round-trips. Returns the number of affected rows.
+        """
+        rows = [(job_id, source, url) for job_id, url in items]
+        if not rows:
+            return 0
+        with self._conn() as conn, conn.cursor() as cur:
+            execute_values(
+                cur,
+                """
+                INSERT INTO raw.crawl_log (job_id, source, status, url)
+                VALUES %s
+                ON CONFLICT (source, job_id) DO UPDATE
+                  SET status = CASE
+                        WHEN raw.crawl_log.status IN ('success','in_progress') THEN raw.crawl_log.status
+                        ELSE 'pending'
+                      END,
+                      url = EXCLUDED.url
+                """,
+                rows,
+                template="(%s, %s, 'pending', %s)",
+                page_size=500,
+            )
+            return cur.rowcount
 
     def claim_next(self, source: str | None = None) -> tuple[str, str] | None:
         """Atomically claim one pending row; returns (job_id, url) or None."""

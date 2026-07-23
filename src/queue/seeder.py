@@ -19,6 +19,11 @@ def seed_from_listings(prefix: str = RAW_PREFIX) -> dict:
 
     counters = {"scanned_files": 0, "enqueued": 0, "skipped": 0, "rejected_url": 0}
 
+    # Collect all valid (job_id, url) pairs first, then enqueue in ONE batch.
+    # The old per-record log.enqueue() opened a connection + did two round-trips
+    # per URL; over the tailnet that turned ~236 URLs into a 13-minute step.
+    items: list[tuple[str, str]] = []
+
     resp = minio.s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
     for obj in resp.get("Contents", []):
         key = obj["Key"]
@@ -43,10 +48,11 @@ def seed_from_listings(prefix: str = RAW_PREFIX) -> dict:
             if not is_allowed(url):
                 counters["rejected_url"] += 1
                 continue
-            if log.enqueue(job_id, url):
-                counters["enqueued"] += 1
-            else:
-                counters["skipped"] += 1
+            items.append((job_id, url))
+
+    # Single round-trip. ON CONFLICT keeps already-crawled jobs out of the
+    # pending queue, so nothing fresh gets re-crawled (see enqueue_many).
+    counters["enqueued"] = log.enqueue_many(items)
 
     logger.info(f"seed result: {counters}")
     return counters

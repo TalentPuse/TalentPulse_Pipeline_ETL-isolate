@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Iterable
 
 import psycopg2
-from psycopg2.extras import Json, RealDictCursor
+from psycopg2.extras import Json, RealDictCursor, execute_values
 
 from src.storage.db import pg_connection
 from src.utils.config import config
@@ -98,8 +98,17 @@ class JobDetailRepo:
         rows = [self._row_from_payload(p) for p in payloads]
         if not rows:
             return 0
+        # executemany() sends one INSERT per row — thousands of tailnet
+        # round-trips, which is what made load_warehouse crawl. execute_values
+        # batches rows into a single multi-row INSERT (one round-trip per page).
+        set_clauses = ", ".join(f"{c} = EXCLUDED.{c}" for c in _UPDATABLE_COLS)
+        sql = (
+            f"INSERT INTO raw.job_detail ({', '.join(_ALL_COLS)}) VALUES %s "
+            f"ON CONFLICT (source, source_job_id) DO UPDATE SET {set_clauses}"
+        )
+        values = [tuple(r[c] for c in _ALL_COLS) for r in rows]
         with self._conn() as conn, conn.cursor() as cur:
-            cur.executemany(_UPSERT_SQL, rows)
+            execute_values(cur, sql, values, page_size=200)
             return cur.rowcount
 
     def count(self, source: str = "vietnamworks") -> int:
