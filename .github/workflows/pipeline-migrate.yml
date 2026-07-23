@@ -83,3 +83,6 @@ jobs:
             -e DB_HOST -e DB_PORT -e DB_USER -e DB_PASSWORD -e DB_NAME \
             "${IMAGE}" \
             python scripts/seed_normalization_rules.py
+
+# GitHub registers schedule/workflow_dispatch workflows only when the file is
+# added or modified in a push to the default branch. This line forces that.

@@ -66,3 +66,6 @@ jobs:
           ts-oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           ts-oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+# GitHub registers schedule/workflow_dispatch workflows only when the file is
+# added or modified in a push to the default branch. This line forces that.
