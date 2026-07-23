@@ -206,9 +206,11 @@ class TestFocusKeywords:
 # ===== SKIP_FOCUS_SOURCES =====
 
 class TestSkipFocusSources:
-    def test_default_contains_itviec(self):
+    def test_default_contains_itviec_and_topcv(self):
+        # Both keyword-search sources skip focus: their job_function is an
+        # industry string that would otherwise fail validate_focus.
         cfg = _reload_config({})
-        assert cfg.SKIP_FOCUS_SOURCES == {"itviec"}
+        assert cfg.SKIP_FOCUS_SOURCES == {"itviec", "topcv"}
 
     def test_custom_multiple(self):
         cfg = _reload_config({"SKIP_FOCUS_SOURCES": "itviec,topcv,linkedin"})
