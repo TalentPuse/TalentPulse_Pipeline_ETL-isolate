@@ -37,7 +37,13 @@ jobs:
       CRAWLER_CONTACT_EMAIL: ${{ vars.CRAWLER_CONTACT_EMAIL }}
       TOPCV_KEYWORDS: ${{ vars.TOPCV_KEYWORDS || 'data-engineer,ai-engineer,data-analyst' }}
       FOCUS_KEYWORDS: ${{ vars.FOCUS_KEYWORDS || 'data engineer,data analyst,ai,machine learning,data science,data scientist,big data,analytics,business development,business analyst,technical sales' }}
-      SKIP_FOCUS_SOURCES: ${{ vars.SKIP_FOCUS_SOURCES || 'itviec,topcv' }}
+      # Always include topcv, even when the repo-level SKIP_FOCUS_SOURCES var is
+      # set (docs/gha-migration-runbook.md ships it as 'itviec'). Without the
+      # unconditional ',topcv' append, that var would override the default and
+      # validate_focus would reject every topcv job (its job_function is an
+      # industry string, never a focus keyword). Appending keeps whatever the
+      # var lists AND guarantees topcv is skipped.
+      SKIP_FOCUS_SOURCES: ${{ vars.SKIP_FOCUS_SOURCES || 'itviec' }},topcv
 
       DASHBOARD_API_URL: http://${{ vars.WEB_TAILNET_IP }}:8001
       ALERT_DISPATCH_SECRET: ${{ secrets.ALERT_DISPATCH_SECRET }}
