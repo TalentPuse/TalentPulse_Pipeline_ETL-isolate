@@ -1,8 +1,11 @@
 from unittest import mock
 """Thorough tests for env-var-driven configuration.
 
-Covers: VNW_KEYWORDS, ITVIEC_KEYWORDS, ALLOWED_FUNCTION_IDS,
-FOCUS_KEYWORDS, SKIP_FOCUS_SOURCES — parsing, defaults, edge cases.
+Covers: FOCUS_KEYWORDS, SKIP_FOCUS_SOURCES, LINKEDIN_TITLE_KEYWORDS —
+parsing, defaults, edge cases. Also covers regression tests confirming that
+VNW_KEYWORDS / ITVIEC_KEYWORDS / TOPCV_KEYWORDS / LINKEDIN_KEYWORDS and
+ALLOWED_FUNCTION_IDS are now HARDCODED in config.py and no longer respond to
+their legacy env-var overrides.
 """
 import os
 import importlib
@@ -40,124 +43,47 @@ def _restore_config():
     """Re-import config module after every test to undo side-effects."""
     yield
     for key in (
-        "VNW_KEYWORDS", "ITVIEC_KEYWORDS", "ALLOWED_FUNCTION_IDS",
-        "FOCUS_KEYWORDS", "SKIP_FOCUS_SOURCES",
+        "VNW_KEYWORDS", "ITVIEC_KEYWORDS", "TOPCV_KEYWORDS", "LINKEDIN_KEYWORDS",
+        "ALLOWED_FUNCTION_IDS", "FOCUS_KEYWORDS", "SKIP_FOCUS_SOURCES",
     ):
         os.environ.pop(key, None)
     importlib.reload(config_mod)
 
 
-# ===== VNW_KEYWORDS =====
+# ===== Keywords / function-ids are hardcoded (env override no longer works) =====
 
-class TestVNWKeywords:
-    def test_default(self):
-        cfg = _reload_config({})
-        assert cfg.VNW_KEYWORDS == [
-            "Data Engineer", "AI Engineer", "Business Analyst",
-            "Business Development", "Technical Sales",
-        ]
+class TestKeywordsNoLongerEnvDriven:
+    """VNW/ITVIEC/TOPCV/LINKEDIN keyword lists and ALLOWED_FUNCTION_IDS are now
+    hardcoded in config.py (single CRAWL_KEYWORDS source of truth); the legacy
+    env vars must have no effect.
+    """
 
-    def test_custom_single(self):
+    def test_vnw_keywords_ignores_env_override(self):
         cfg = _reload_config({"VNW_KEYWORDS": "Backend Developer"})
-        assert cfg.VNW_KEYWORDS == ["Backend Developer"]
+        assert cfg.VNW_KEYWORDS == cfg.CRAWL_KEYWORDS
+        assert "Backend Developer" not in cfg.VNW_KEYWORDS
 
-    def test_custom_multiple(self):
-        cfg = _reload_config({"VNW_KEYWORDS": "Data Engineer,ML Engineer,DevOps"})
-        assert cfg.VNW_KEYWORDS == ["Data Engineer", "ML Engineer", "DevOps"]
-
-    def test_strips_whitespace(self):
-        cfg = _reload_config({"VNW_KEYWORDS": "  Data Engineer , AI Engineer  "})
-        assert cfg.VNW_KEYWORDS == ["Data Engineer", "AI Engineer"]
-
-    def test_trailing_comma_ignored(self):
-        cfg = _reload_config({"VNW_KEYWORDS": "Data Engineer,"})
-        assert cfg.VNW_KEYWORDS == ["Data Engineer"]
-
-    def test_empty_string_yields_empty_list(self):
-        cfg = _reload_config({"VNW_KEYWORDS": ""})
-        assert cfg.VNW_KEYWORDS == []
-
-    def test_only_commas_yields_empty_list(self):
-        cfg = _reload_config({"VNW_KEYWORDS": ",,,"})
-        assert cfg.VNW_KEYWORDS == []
-
-    def test_preserves_order(self):
-        cfg = _reload_config({"VNW_KEYWORDS": "C,B,A"})
-        assert cfg.VNW_KEYWORDS == ["C", "B", "A"]
-
-    def test_is_list(self):
-        cfg = _reload_config({})
-        assert isinstance(cfg.VNW_KEYWORDS, list)
-
-
-# ===== ITVIEC_KEYWORDS =====
-
-class TestITviecKeywords:
-    def test_default(self):
-        cfg = _reload_config({})
-        assert cfg.ITVIEC_KEYWORDS == ["data-engineer", "ai-engineer", "data-analyst"]
-
-    def test_custom(self):
+    def test_itviec_keywords_ignores_env_override(self):
         cfg = _reload_config({"ITVIEC_KEYWORDS": "devops,backend"})
-        assert cfg.ITVIEC_KEYWORDS == ["devops", "backend"]
+        assert cfg.ITVIEC_KEYWORDS != ["devops", "backend"]
+        assert cfg.ITVIEC_KEYWORDS == cfg.TOPCV_KEYWORDS
 
-    def test_strips_whitespace(self):
-        cfg = _reload_config({"ITVIEC_KEYWORDS": " data-engineer , ai-engineer "})
-        assert cfg.ITVIEC_KEYWORDS == ["data-engineer", "ai-engineer"]
+    def test_topcv_keywords_ignores_env_override(self):
+        cfg = _reload_config({"TOPCV_KEYWORDS": "hr,finance"})
+        assert cfg.TOPCV_KEYWORDS != ["hr", "finance"]
+        assert cfg.TOPCV_KEYWORDS == cfg.ITVIEC_KEYWORDS
 
-    def test_empty_string_yields_empty_list(self):
-        cfg = _reload_config({"ITVIEC_KEYWORDS": ""})
-        assert cfg.ITVIEC_KEYWORDS == []
+    def test_linkedin_keywords_ignores_env_override(self):
+        cfg = _reload_config({"LINKEDIN_KEYWORDS": "Cloud Architect,SRE"})
+        assert cfg.LINKEDIN_KEYWORDS == cfg.CRAWL_KEYWORDS
 
-    def test_is_list(self):
-        cfg = _reload_config({})
-        assert isinstance(cfg.ITVIEC_KEYWORDS, list)
-
-
-# ===== ALLOWED_FUNCTION_IDS =====
-
-class TestAllowedFunctionIDs:
-    def test_default_contains_all_ids(self):
-        cfg = _reload_config({})
-        assert cfg.ALLOWED_FUNCTION_IDS == {25, 27, 129, 130}
-
-    def test_custom_single(self):
-        cfg = _reload_config({"ALLOWED_FUNCTION_IDS": "42"})
-        assert cfg.ALLOWED_FUNCTION_IDS == {42}
-
-    def test_custom_multiple(self):
+    def test_allowed_function_ids_ignores_env_override(self):
         cfg = _reload_config({"ALLOWED_FUNCTION_IDS": "27,42,99"})
-        assert cfg.ALLOWED_FUNCTION_IDS == {27, 42, 99}
-
-    def test_strips_whitespace(self):
-        cfg = _reload_config({"ALLOWED_FUNCTION_IDS": " 27 , 42 "})
-        assert cfg.ALLOWED_FUNCTION_IDS == {27, 42}
-
-    def test_trailing_comma_ignored(self):
-        cfg = _reload_config({"ALLOWED_FUNCTION_IDS": "27,"})
-        assert cfg.ALLOWED_FUNCTION_IDS == {27}
-
-    def test_duplicates_collapsed(self):
-        cfg = _reload_config({"ALLOWED_FUNCTION_IDS": "27,27,27"})
-        assert cfg.ALLOWED_FUNCTION_IDS == {27}
-
-    def test_is_set_of_int(self):
-        cfg = _reload_config({"ALLOWED_FUNCTION_IDS": "27,42"})
-        assert isinstance(cfg.ALLOWED_FUNCTION_IDS, set)
-        for item in cfg.ALLOWED_FUNCTION_IDS:
-            assert isinstance(item, int)
-
-    def test_invalid_non_numeric_raises(self):
-        with pytest.raises(ValueError):
-            _reload_config({"ALLOWED_FUNCTION_IDS": "abc"})
-
-    def test_empty_string_yields_empty_set(self):
-        cfg = _reload_config({"ALLOWED_FUNCTION_IDS": ""})
         assert cfg.ALLOWED_FUNCTION_IDS == set()
 
-    def test_target_job_function_ids_synced(self):
-        cfg = _reload_config({"ALLOWED_FUNCTION_IDS": "27,42"})
-        assert set(cfg.TARGET_JOB_FUNCTION_IDS) == {27, 42}
+    def test_target_job_function_ids_ignores_env_override(self):
+        cfg = _reload_config({"ALLOWED_FUNCTION_IDS": "27,42,99"})
+        assert cfg.TARGET_JOB_FUNCTION_IDS == []
 
 
 # ===== FOCUS_KEYWORDS =====
@@ -207,8 +133,8 @@ class TestFocusKeywords:
 
 class TestSkipFocusSources:
     def test_default_contains_itviec_and_topcv(self):
-        # Both keyword-search sources skip focus: their job_function is an
-        # industry string that would otherwise fail validate_focus.
+        # SKIP_FOCUS_SOURCES still exists (env-driven) even though validate()
+        # no longer consults it — focus filtering was removed from validate().
         cfg = _reload_config({})
         assert cfg.SKIP_FOCUS_SOURCES == {"itviec", "topcv"}
 
@@ -230,27 +156,15 @@ class TestSkipFocusSources:
 
 
 # ===== Validators respect config (integration) =====
+#
+# validate() itself no longer performs focus/title/location filtering (see
+# src/loaders/validators.py — it only calls validate_business_rules now).
+# validate_focus / validate_title_keywords / validate_location_vietnam are
+# unchanged and still read live config, so the tests calling them directly
+# stay in place.
 
 class TestValidatorsUseConfig:
-    """Verify validators read live config values, not stale snapshots."""
-
-    def test_validate_focus_uses_config_allowed_ids(self):
-        cfg = _reload_config({"ALLOWED_FUNCTION_IDS": "99"})
-        from src.loaders.validators import validate_focus
-        importlib.reload(__import__("src.loaders.validators", fromlist=["validate_focus"]))
-        from src.loaders.validators import validate_focus
-
-        payload = {
-            "job_function": {"children": [{"id": 99, "name": "Custom"}]},
-        }
-        assert validate_focus(payload) is None
-
-        payload_reject = {
-            "job_function": {"children": [{"id": 27, "name": "DE"}]},
-        }
-        result = validate_focus(payload_reject)
-        assert result is not None
-        assert result[0] == "OUT_OF_FOCUS"
+    """Verify validate_focus reads live config values, not stale snapshots."""
 
     def test_validate_focus_uses_config_keywords(self):
         cfg = _reload_config({"FOCUS_KEYWORDS": "quantum computing"})
@@ -259,34 +173,6 @@ class TestValidatorsUseConfig:
 
         assert validate_focus({"job_function": "Quantum Computing Lead"}) is None
         result = validate_focus({"job_function": "Data Engineer"})
-        assert result is not None
-        assert result[0] == "OUT_OF_FOCUS"
-
-    def test_validate_skip_focus_sources_from_config(self):
-        cfg = _reload_config({"SKIP_FOCUS_SOURCES": "topcv"})
-        importlib.reload(__import__("src.loaders.validators", fromlist=["validate"]))
-        from src.loaders.validators import validate
-
-        payload = {
-            "source": "topcv",
-            "title": "HR Manager",
-            "company_name": "ACME",
-            "job_function": {"children": [{"id": 999, "name": "HR"}]},
-        }
-        assert validate(payload) is None
-
-    def test_validate_itviec_no_longer_skipped_when_removed(self):
-        cfg = _reload_config({"SKIP_FOCUS_SOURCES": ""})
-        importlib.reload(__import__("src.loaders.validators", fromlist=["validate"]))
-        from src.loaders.validators import validate
-
-        payload = {
-            "source": "itviec",
-            "title": "HR Manager",
-            "company_name": "ACME",
-            "job_function": {"children": [{"id": 999, "name": "HR"}]},
-        }
-        result = validate(payload)
         assert result is not None
         assert result[0] == "OUT_OF_FOCUS"
 
@@ -304,14 +190,13 @@ class TestConfigConsistency:
             assert kw == kw.lower(), f"Keyword '{kw}' is not lowercase"
 
     def test_docker_compose_defaults_match_config_defaults(self):
-        """Defaults in config.py should match docker-compose.yml x-worker-env."""
+        """Defaults in config.py should match docker-compose.yml x-worker-env.
+
+        Keyword / function-id assertions were dropped: those are now hardcoded
+        in config.py (not read from env), so there is nothing docker-compose
+        can override for them anymore.
+        """
         cfg = _reload_config({})
-        assert cfg.VNW_KEYWORDS == [
-            "Data Engineer", "AI Engineer", "Business Analyst",
-            "Business Development", "Technical Sales",
-        ]
-        assert cfg.ITVIEC_KEYWORDS == ["data-engineer", "ai-engineer", "data-analyst"]
-        assert cfg.ALLOWED_FUNCTION_IDS == {25, 27, 129, 130}
         assert "itviec" in cfg.SKIP_FOCUS_SOURCES
 
 

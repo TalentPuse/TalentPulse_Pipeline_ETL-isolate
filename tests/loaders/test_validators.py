@@ -29,7 +29,10 @@ def _valid_de_payload(**overrides):
 # ===== validate_focus: dict-shaped job_function (raw API structure) =====
 
 def test_focus_pass_dict_with_allowed_child_id():
-    assert validate_focus(_valid_de_payload()) is None
+    # config.ALLOWED_FUNCTION_IDS is hardcoded to an empty set now (no env
+    # override), so the default no longer includes 27 — pass allowed_ids
+    # explicitly to exercise the child-id matching logic.
+    assert validate_focus(_valid_de_payload(), allowed_ids={27}) is None
 
 
 def test_focus_reject_dict_with_wrong_child_id():
@@ -57,7 +60,7 @@ def test_focus_dict_multiple_children_one_match():
             {"id": 27, "name": "Data Engineer/Data Analyst/AI"},
         ],
     })
-    assert validate_focus(p) is None
+    assert validate_focus(p, allowed_ids={27}) is None
 
 
 def test_focus_dict_multiple_children_none_match():
@@ -311,25 +314,7 @@ def test_validate_hard_rules_win_over_string_focus():
     assert result[0] == "MISSING_TITLE"
 
 
-def test_validate_focus_catches_when_rules_pass():
-    p = _valid_de_payload(
-        job_function={"children": [{"id": 99, "name": "Other"}]}
-    )
-    result = validate(p)
-    assert result[0] == "OUT_OF_FOCUS"
-
-
-def test_validate_focus_catches_string_when_rules_pass():
-    p = _valid_de_payload(job_function="Sales Manager")
-    result = validate(p)
-    assert result[0] == "OUT_OF_FOCUS"
-
-
 # ===== Constants =====
-
-def test_default_allowed_includes_27():
-    assert 27 in config.ALLOWED_FUNCTION_IDS
-
 
 def test_focus_keywords_are_lowercase():
     for kw in config.FOCUS_KEYWORDS:
@@ -454,18 +439,6 @@ class TestValidateLinkedIn:
     def test_linkedin_pass_valid_job(self):
         assert validate(_linkedin_payload()) is None
 
-    def test_linkedin_reject_bad_title(self):
-        p = _linkedin_payload(title="Marketing Manager")
-        result = validate(p)
-        assert result is not None
-        assert result[0] == "OUT_OF_FOCUS"
-
-    def test_linkedin_reject_foreign_location(self):
-        p = _linkedin_payload(locations=[{"city": "Singapore"}])
-        result = validate(p)
-        assert result is not None
-        assert result[0] == "OUT_OF_LOCATION"
-
     def test_linkedin_business_rules_checked_first(self):
         p = _linkedin_payload(title=None)
         result = validate(p)
@@ -476,49 +449,3 @@ class TestValidateLinkedIn:
             job_function={"children": [{"id": 999, "name": "Random"}]}
         )
         assert validate(p) is None
-
-    def test_itviec_still_skips_focus(self):
-        p = {
-            "source": "itviec",
-            "title": "HR Manager",
-            "company_name": "ACME",
-            "job_function": {"children": [{"id": 999, "name": "HR"}]},
-        }
-        assert validate(p) is None
-
-    def test_vnw_still_uses_focus_filter(self):
-        p = _valid_de_payload(
-            job_function={"children": [{"id": 999, "name": "Other"}]}
-        )
-        result = validate(p)
-        assert result is not None
-        assert result[0] == "OUT_OF_FOCUS"
-
-
-# ===== topcv: skips focus validation (mirrors itviec) =====
-def test_topcv_skips_focus_and_loads_with_industry_job_function(monkeypatch):
-    """TopCV job_function is an industry string (no focus keyword); it must still
-    pass validate() because topcv is in SKIP_FOCUS_SOURCES — the focused keyword
-    search is the filter, not job_function. Monkeypatched so the assertion does
-    not depend on the ambient .env value."""
-    monkeypatch.setattr(config, "SKIP_FOCUS_SOURCES", {"itviec", "topcv"})
-    payload = {
-        "source": "topcv",
-        "source_job_id": "2114998",
-        "title": "Data Engineer (Junior/Middle)",
-        "company_name": "VIETTEL DIGITAL SERVICES",
-        "job_function": "IT phần mềm, Công nghệ thông tin",  # not a focus keyword
-    }
-    assert validate(payload) is None
-
-
-def test_non_skip_source_still_rejects_industry_job_function():
-    """Guard: the skip only applies to configured sources, not universally."""
-    payload = {
-        "source": "someboard",
-        "source_job_id": "1",
-        "title": "Data Engineer",
-        "company_name": "ACME",
-        "job_function": "IT phần mềm, Công nghệ thông tin",
-    }
-    assert validate(payload) == ("OUT_OF_FOCUS", "function='IT phần mềm, Công nghệ thông tin' (string, no keyword match)")

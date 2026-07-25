@@ -1,4 +1,5 @@
 import os
+import re
 from urllib.parse import quote_plus
 from dotenv import load_dotenv
 from typing import Optional
@@ -28,30 +29,36 @@ class Config:
     # "auto" is what R2 expects; "us-east-1" was a MinIO leftover.
     S3_REGION: str = os.getenv("S3_REGION", "auto")
 
-    # Keywords per source (comma-separated in env)
-    VNW_KEYWORDS: list[str] = [
-        k.strip() for k in os.getenv(
-            "VNW_KEYWORDS",
-            "Data Engineer,AI Engineer,Business Analyst,Business Development,Technical Sales"
-        ).split(",") if k.strip()
+    # ── Crawl keywords ──────────────────────────────────────────────────────
+    # Single hardcoded source of truth (NOT env / GitHub vars) so every platform
+    # crawls the same roles. VNW + LinkedIn search by the text form; ITviec (and
+    # the old TopCV) search by URL slug, so they get the slugified form. Focus
+    # filtering is intentionally OFF (see src/loaders/validators.py) — whatever
+    # these searches return is loaded.
+    CRAWL_KEYWORDS: list[str] = [
+        "Data Engineer", "AI Engineer", "Data Analyst", "Data Scientist",
+        "Machine Learning Engineer", "MLOps Engineer", "Business Intelligence",
+        "Business Analyst", "Software Engineer", "DevOps Engineer",
+        "Cloud Engineer", "Cyber Security", "SOC Engineer", "Network Engineer",
+        "System Engineer", "QA/QC Engineer", "Technical Support",
+        "Technical Sales", "Business Development", "Product Manager",
+        "Project Manager", "UI/UX Designer",
     ]
+
+    VNW_KEYWORDS: list[str] = CRAWL_KEYWORDS
     ITVIEC_KEYWORDS: list[str] = [
-        k.strip() for k in os.getenv("ITVIEC_KEYWORDS", "data-engineer,ai-engineer,data-analyst").split(",") if k.strip()
+        re.sub(r"[^a-z0-9]+", "-", k.lower()).strip("-") for k in CRAWL_KEYWORDS
     ]
-    TOPCV_KEYWORDS: list[str] = [
-        k.strip() for k in os.getenv("TOPCV_KEYWORDS", "data-engineer,ai-engineer,data-analyst").split(",") if k.strip()
-    ]
+    TOPCV_KEYWORDS: list[str] = ITVIEC_KEYWORDS
     # TopCV hard-blocks datacenter IPs (CI runners / VPS) with an always-on
     # Cloudflare challenge, so crawling from CI needs a residential proxy.
     # Unset = direct connection (works from residential IPs only).
     TOPCV_PROXY_URL: str | None = os.getenv("TOPCV_PROXY_URL")
 
-    # VietnamWorks jobFunctionV3Id filter (comma-separated in env)
-    # 25 = "Business/System Analysis", 27 = "Data Engineer/Data Analyst/AI"
-    # 129 = "Sales/Business Development", 130 = "Sales Engineer/Technical Sales"
-    ALLOWED_FUNCTION_IDS: set[int] = {
-        int(x) for x in os.getenv("ALLOWED_FUNCTION_IDS", "25,27,129,130").split(",") if x.strip()
-    }
+    # VietnamWorks jobFunctionV3Id filter — intentionally EMPTY so VNW searches
+    # by keyword text only (no server-side function restriction), matching the
+    # "crawl the keyword list on every platform, no focus filter" policy.
+    ALLOWED_FUNCTION_IDS: set[int] = set()
 
     # Focus keywords for string-based job_function matching
     FOCUS_KEYWORDS: set[str] = {
@@ -62,12 +69,7 @@ class Config:
     }
 
     # LinkedIn
-    LINKEDIN_KEYWORDS: list[str] = [
-        k.strip() for k in os.getenv(
-            "LINKEDIN_KEYWORDS",
-            "Data Engineer,Data Analyst,AI Engineer,Data Scientist,Business Analyst"
-        ).split(",") if k.strip()
-    ]
+    LINKEDIN_KEYWORDS: list[str] = CRAWL_KEYWORDS
     LINKEDIN_GEO_ID: str = os.getenv("LINKEDIN_GEO_ID", "104195383")
     LINKEDIN_RATE_SECONDS: float = float(os.getenv("LINKEDIN_RATE_SECONDS", "3.0"))
     LINKEDIN_PROXY_URL: str | None = os.getenv("LINKEDIN_PROXY_URL")

@@ -157,26 +157,6 @@ def test_loader_skips_non_json_keys():
 
 # --- v2: validation integration ---
 
-def test_loader_rejects_out_of_focus():
-    p_noise = _payload(
-        1, job_function={"children": [{"id": 9, "name": "Software Dev"}]}
-    )
-    keys = [
-        ("parsed/details/vietnamworks/1.json", p_noise),
-        ("parsed/details/vietnamworks/2.json", _payload(2)),
-    ]
-    loader, _, repo = _make_loader(keys)
-    counters = loader.run_batch()
-    assert counters["loaded"] == 1
-    assert counters["rejected"] == 1
-    assert len(_loaded_payloads(repo)) == 1
-    rejects = _reject_tuples(repo)
-    assert len(rejects) == 1
-    payload, reason, detail, key = rejects[0]
-    assert reason == "OUT_OF_FOCUS"
-    assert key == "parsed/details/vietnamworks/1.json"
-
-
 def test_loader_rejects_bad_salary_range():
     p = _payload(
         1,

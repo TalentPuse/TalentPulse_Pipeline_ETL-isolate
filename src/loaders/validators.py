@@ -114,20 +114,12 @@ def validate_business_rules(payload: dict) -> ValidationResult:
 def validate(
     payload: dict, allowed_ids: set[int] | None = None
 ) -> ValidationResult:
-    """Run all validators. Hard rules first, then source-specific filters."""
-    result = validate_business_rules(payload)
-    if result:
-        return result
+    """Only data-integrity rules — focus / title-keyword / location filtering is
+    intentionally DISABLED.
 
-    source = payload.get("source")
-
-    if source == "linkedin":
-        result = validate_title_keywords(payload)
-        if result:
-            return result
-        return validate_location_vietnam(payload)
-
-    if source in config.SKIP_FOCUS_SOURCES:
-        return None
-
-    return validate_focus(payload, allowed_ids)
+    Every platform now crawls the same CRAWL_KEYWORDS list (config), so results
+    are already on-topic; a second focus filter only dropped good jobs. The only
+    reasons to reject are a broken row (missing title/company, impossible salary
+    or date range). ``allowed_ids`` is kept for signature/back-compat.
+    """
+    return validate_business_rules(payload)
