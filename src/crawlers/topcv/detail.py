@@ -108,7 +108,16 @@ class TopCVDetailCrawler:
                 break
             job_id, url = job
 
-            outcome = self.process_one(job_id, url)
+            try:
+                outcome = self.process_one(job_id, url)
+            except Exception as e:
+                # process_one already handles known failure modes internally;
+                # this catches anything unexpected (e.g. minio.upload_bytes
+                # errors) so the claimed row never stays stuck in_progress.
+                logger.error(f"process_one crashed for {job_id}: {e}")
+                self.breaker.record(None)
+                self.log.mark_failed(job_id, None, str(e), source=SOURCE)
+                outcome = "failed"
             counters[outcome] = counters.get(outcome, 0) + 1
             processed += 1
             logger.info(

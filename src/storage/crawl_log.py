@@ -96,7 +96,8 @@ class CrawlLog:
         connection instead. The ON CONFLICT CASE keeps rows already in
         'success'/'in_progress' untouched, so fresh jobs are still not
         re-crawled — same queue outcome as the is_fresh guard, without the
-        round-trips. Returns the number of affected rows.
+        round-trips. Returns the number of deduped (job_id, url) rows sent
+        in the INSERT (see comment below on why this isn't cur.rowcount).
         """
         # Dedup by job_id: the same job often appears under several search
         # keywords, so `items` can carry the same (source, job_id) twice.
@@ -124,7 +125,15 @@ class CrawlLog:
                 template="(%s, %s, 'pending', %s)",
                 page_size=500,
             )
-            return cur.rowcount
+            # execute_values splits the VALUES list into multiple statements
+            # of up to `page_size` rows each (psycopg2 internals), so
+            # cur.rowcount only reflects the LAST statement's row count, not
+            # the total. All `rows` ARE upserted regardless; return the
+            # deduped list's length (what was actually sent) so the reported
+            # count matches reality instead of undercounting on batches
+            # larger than page_size (e.g. 624 rows -> rowcount would report
+            # 124, the last batch only).
+            return len(rows)
 
     def claim_next(self, source: str | None = None) -> tuple[str, str] | None:
         """Atomically claim one pending row; returns (job_id, url) or None."""

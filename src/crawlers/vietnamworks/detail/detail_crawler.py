@@ -103,6 +103,15 @@ class DetailCrawler:
             except BlockedError:
                 counters["failed"] += 1
                 break
+            except Exception as e:
+                # process_one already handles ExpiredError/BlockedError/
+                # TransientError internally; this catches anything
+                # unexpected (e.g. minio.upload_bytes errors) so the
+                # claimed row never stays stuck in_progress.
+                logger.error(f"process_one crashed for {job_id}: {e}")
+                self.breaker.record(None)
+                self.log.mark_failed(job_id, None, str(e))
+                outcome = "failed"
             counters[outcome] = counters.get(outcome, 0) + 1
             processed += 1
             logger.info(

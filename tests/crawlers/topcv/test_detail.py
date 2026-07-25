@@ -55,3 +55,28 @@ def test_run_tiny_response_marks_failed(monkeypatch):
     assert counters["failed"] == 1
     minio.upload_bytes.assert_not_called()
     log.mark_failed.assert_called_once()
+
+
+def test_run_process_one_crash_marks_failed_not_left_in_progress(monkeypatch):
+    """A crash inside process_one (e.g. minio.upload_bytes raising) must
+    still resolve the claimed row via mark_failed, never leave it stuck
+    in_progress for the next run to be unable to reclaim."""
+    monkeypatch.setattr("src.crawlers.topcv.detail.jitter_sleep", lambda *a, **k: None)
+    monkeypatch.setattr("src.crawlers.topcv.detail.safety.is_killed", lambda: False)
+
+    body = "<html>" + "x" * 2000 + "</html>"
+    crawler, log, minio = make_crawler(
+        claim_jobs=[("2114998", URL)],
+        fetch_side_effect=[body],
+    )
+    minio.upload_bytes.side_effect = RuntimeError("minio connection reset")
+
+    counters = crawler.run()
+
+    assert counters["failed"] == 1
+    assert counters["success"] == 0
+    log.mark_failed.assert_called_once()
+    call_args = log.mark_failed.call_args
+    assert call_args[0][0] == "2114998"
+    assert call_args[1]["source"] == "topcv"
+    log.claim_next.assert_called()

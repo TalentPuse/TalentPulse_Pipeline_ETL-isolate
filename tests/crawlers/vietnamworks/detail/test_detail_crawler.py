@@ -95,6 +95,27 @@ def test_run_blocked_triggers_kill_and_stops(monkeypatch):
     monkeypatch.delenv("CRAWLER_KILL_SWITCH", raising=False)
 
 
+def test_run_process_one_crash_marks_failed_not_left_in_progress(monkeypatch):
+    """A crash inside process_one (e.g. minio.upload_bytes raising) must
+    still resolve the claimed row via mark_failed, never leave it stuck
+    in_progress for the next run to be unable to reclaim."""
+    monkeypatch.setattr("src.crawlers.vietnamworks.detail.detail_crawler.jitter_sleep", lambda *a, **k: None)
+    monkeypatch.delenv("CRAWLER_KILL_SWITCH", raising=False)
+
+    crawler, log, fetcher, minio = make_crawler(
+        claim_jobs=[("12345", URL)],
+        fetch_side_effect=[(200, "<html>real body</html>", 100)],
+    )
+    minio.upload_bytes.side_effect = RuntimeError("minio connection reset")
+
+    counters = crawler.run()
+
+    assert counters["failed"] == 1
+    assert counters.get("success", 0) == 0
+    log.mark_failed.assert_called_once_with("12345", None, "minio connection reset")
+    log.claim_next.assert_called()
+
+
 def test_run_rejects_disallowed_url(monkeypatch):
     monkeypatch.setattr("src.crawlers.vietnamworks.detail.detail_crawler.jitter_sleep", lambda *a, **k: None)
     monkeypatch.delenv("CRAWLER_KILL_SWITCH", raising=False)

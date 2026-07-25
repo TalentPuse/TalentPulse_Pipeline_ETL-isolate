@@ -59,10 +59,16 @@ def seed_queue(urls: list[str]) -> dict:
 def detail_crawl(max_jobs: int | None = None) -> dict:
     logger = get_run_logger()
     t0 = time.time()
+    log = CrawlLog()
+    requeued = log.requeue_stale(
+        source="topcv", older_than_minutes=config.CRAWL_STALE_CLAIM_MINUTES
+    )
+    if requeued:
+        logger.info(f"Requeued {requeued} stale in_progress rows from a previous killed run")
     with StealthBrowser(proxy=config.TOPCV_PROXY_URL) as browser:
         crawler = TopCVDetailCrawler(
             browser=browser,
-            log=CrawlLog(),
+            log=log,
             minio=MinioClient(),
         )
         result = crawler.run(max_jobs=max_jobs)

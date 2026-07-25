@@ -57,8 +57,15 @@ def seed_queue() -> dict:
 
 @task(name="detail_crawl", retries=2, retry_delay_seconds=120, timeout_seconds=3600)
 def detail_crawl(max_jobs: int | None = None) -> dict:
+    logger = get_run_logger()
     t0 = time.time()
-    crawler = DetailCrawler(log=CrawlLog(), fetcher=Fetcher(), minio=MinioClient())
+    log = CrawlLog()
+    requeued = log.requeue_stale(
+        source="vietnamworks", older_than_minutes=config.CRAWL_STALE_CLAIM_MINUTES
+    )
+    if requeued:
+        logger.info(f"Requeued {requeued} stale in_progress rows from a previous killed run")
+    crawler = DetailCrawler(log=log, fetcher=Fetcher(), minio=MinioClient())
     result = crawler.run(max_jobs=max_jobs)
     dur = time.time() - t0
     create_markdown_artifact(

@@ -175,6 +175,29 @@ class TestRun:
         browser.fetch_page.assert_not_called()
 
     @patch("src.crawlers.itviec.detail.jitter_sleep", lambda *a, **k: None)
+    def test_process_one_crash_marks_failed_not_left_in_progress(self, monkeypatch):
+        """A crash inside process_one (e.g. minio.upload_bytes raising) must
+        still resolve the claimed row via mark_failed, never leave it stuck
+        in_progress for the next run to be unable to reclaim."""
+        monkeypatch.delenv("CRAWLER_KILL_SWITCH", raising=False)
+        crawler, log, browser, minio = _make_crawler(
+            claim_jobs=[("4611", DETAIL_URL)],
+        )
+        minio.upload_bytes.side_effect = RuntimeError("minio connection reset")
+
+        counters = crawler.run()
+
+        assert counters["failed"] == 1
+        assert counters["success"] == 0
+        log.mark_failed.assert_called_once()
+        call_args = log.mark_failed.call_args
+        assert call_args[0][0] == "4611"
+        assert call_args[1]["source"] == SOURCE
+        # crawler must not have crashed out of run() — loop kept going and
+        # exhausted the queue normally.
+        log.claim_next.assert_called()
+
+    @patch("src.crawlers.itviec.detail.jitter_sleep", lambda *a, **k: None)
     def test_mixed_success_and_failure(self, monkeypatch):
         monkeypatch.delenv("CRAWLER_KILL_SWITCH", raising=False)
         good_html = make_detail_html()
