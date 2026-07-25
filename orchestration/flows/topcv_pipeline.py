@@ -28,7 +28,7 @@ TOPCV_PARSED_PREFIX = "parsed/details/topcv/"
 def listing_crawl(keywords: list[str], max_pages: int | None = None) -> list[str]:
     logger = get_run_logger()
     t0 = time.time()
-    with StealthBrowser() as browser:
+    with StealthBrowser(proxy=config.TOPCV_PROXY_URL) as browser:
         crawler = TopCVListingCrawler(browser=browser)
         result = crawler.crawl_all_listings(keywords=keywords, max_pages=max_pages)
     dur = time.time() - t0
@@ -59,7 +59,7 @@ def seed_queue(urls: list[str]) -> dict:
 def detail_crawl(max_jobs: int | None = None) -> dict:
     logger = get_run_logger()
     t0 = time.time()
-    with StealthBrowser() as browser:
+    with StealthBrowser(proxy=config.TOPCV_PROXY_URL) as browser:
         crawler = TopCVDetailCrawler(
             browser=browser,
             log=CrawlLog(),

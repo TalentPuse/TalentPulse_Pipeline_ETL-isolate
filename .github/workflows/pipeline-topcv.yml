@@ -36,6 +36,9 @@ jobs:
 
       CRAWLER_CONTACT_EMAIL: ${{ vars.CRAWLER_CONTACT_EMAIL }}
       TOPCV_KEYWORDS: ${{ vars.TOPCV_KEYWORDS || 'data-engineer,ai-engineer,data-analyst' }}
+      # TopCV hard-blocks datacenter IPs (this runner). Set a residential proxy
+      # secret or listing_crawl returns 0 jobs. Empty = direct (will get 0 here).
+      TOPCV_PROXY_URL: ${{ secrets.TOPCV_PROXY_URL }}
       FOCUS_KEYWORDS: ${{ vars.FOCUS_KEYWORDS || 'data engineer,data analyst,ai,machine learning,data science,data scientist,big data,analytics,business development,business analyst,technical sales' }}
       # Always include topcv, even when the repo-level SKIP_FOCUS_SOURCES var is
       # set (docs/gha-migration-runbook.md ships it as 'itviec'). Without the

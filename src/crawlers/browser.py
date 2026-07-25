@@ -54,15 +54,44 @@ Object.defineProperty(navigator, 'languages', {
 """
 
 
+def _parse_proxy(url: str | None) -> dict | None:
+    """Turn a proxy URL into Playwright's proxy dict, splitting embedded auth.
+
+    'http://user:pass@host:3128' -> {'server': 'http://host:3128',
+    'username': 'user', 'password': 'pass'}. Returns None for falsy input.
+    """
+    if not url:
+        return None
+    from urllib.parse import urlparse
+
+    p = urlparse(url)
+    host = p.hostname or url
+    server = f"{p.scheme or 'http'}://{host}"
+    if p.port:
+        server += f":{p.port}"
+    cfg: dict = {"server": server}
+    if p.username:
+        cfg["username"] = p.username
+    if p.password:
+        cfg["password"] = p.password
+    return cfg
+
+
 class StealthBrowser:
     """Playwright Chromium with anti-detection patches.
 
     Clears cookies before each navigation to bypass Cloudflare session tracking.
     """
 
-    def __init__(self, headless: bool = True, default_wait_ms: int = 8000):
+    def __init__(
+        self,
+        headless: bool = True,
+        default_wait_ms: int = 8000,
+        proxy: str | None = None,
+    ):
         self._headless = headless
         self._default_wait_ms = default_wait_ms
+        self._proxy = proxy or None
         self._pw: Playwright | None = None
         self._browser: Browser | None = None
         self._ctx: BrowserContext | None = None
@@ -70,7 +99,7 @@ class StealthBrowser:
 
     def start(self) -> "StealthBrowser":
         self._pw = sync_playwright().start()
-        self._browser = self._pw.chromium.launch(
+        launch_kwargs = dict(
             headless=self._headless,
             args=[
                 "--disable-blink-features=AutomationControlled",
@@ -78,6 +107,11 @@ class StealthBrowser:
                 "--disable-dev-shm-usage",
             ],
         )
+        proxy_cfg = _parse_proxy(self._proxy)
+        if proxy_cfg:
+            launch_kwargs["proxy"] = proxy_cfg
+            logger.info(f"StealthBrowser routing via proxy {proxy_cfg['server']}")
+        self._browser = self._pw.chromium.launch(**launch_kwargs)
         self._create_context()
         return self
 

@@ -41,6 +41,10 @@ class Config:
     TOPCV_KEYWORDS: list[str] = [
         k.strip() for k in os.getenv("TOPCV_KEYWORDS", "data-engineer,ai-engineer,data-analyst").split(",") if k.strip()
     ]
+    # TopCV hard-blocks datacenter IPs (CI runners / VPS) with an always-on
+    # Cloudflare challenge, so crawling from CI needs a residential proxy.
+    # Unset = direct connection (works from residential IPs only).
+    TOPCV_PROXY_URL: str | None = os.getenv("TOPCV_PROXY_URL")
 
     # VietnamWorks jobFunctionV3Id filter (comma-separated in env)
     # 25 = "Business/System Analysis", 27 = "Data Engineer/Data Analyst/AI"

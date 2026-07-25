@@ -78,6 +78,7 @@ runs:
           -e VNW_KEYWORDS \
           -e ITVIEC_KEYWORDS \
           -e TOPCV_KEYWORDS \
+          -e TOPCV_PROXY_URL \
           -e ALLOWED_FUNCTION_IDS \
           -e FOCUS_KEYWORDS \
           -e LINKEDIN_KEYWORDS \

@@ -6,7 +6,57 @@ from unittest.mock import MagicMock, patch, call
 
 import pytest
 
-from src.crawlers.browser import StealthBrowser, UA_POOL, VIEWPORT_POOL, STEALTH_JS
+from src.crawlers.browser import (
+    StealthBrowser,
+    UA_POOL,
+    VIEWPORT_POOL,
+    STEALTH_JS,
+    _parse_proxy,
+)
+
+
+class TestParseProxy:
+    def test_none_and_empty(self):
+        assert _parse_proxy(None) is None
+        assert _parse_proxy("") is None
+
+    def test_plain_server(self):
+        assert _parse_proxy("http://proxy.example:3128") == {
+            "server": "http://proxy.example:3128"
+        }
+
+    def test_with_credentials(self):
+        assert _parse_proxy("http://user:pass@proxy.example:8080") == {
+            "server": "http://proxy.example:8080",
+            "username": "user",
+            "password": "pass",
+        }
+
+
+class TestProxyWiring:
+    @patch("src.crawlers.browser.sync_playwright")
+    def test_start_passes_proxy_to_launch(self, mock_sp):
+        pw = MagicMock()
+        mock_sp.return_value.start.return_value = pw
+        pw.chromium.launch.return_value = MagicMock()
+        pw.chromium.launch.return_value.new_context.return_value.new_page.return_value = MagicMock()
+
+        StealthBrowser(proxy="http://u:p@host:3128").start()
+
+        assert pw.chromium.launch.call_args[1]["proxy"] == {
+            "server": "http://host:3128", "username": "u", "password": "p",
+        }
+
+    @patch("src.crawlers.browser.sync_playwright")
+    def test_start_no_proxy_key_when_unset(self, mock_sp):
+        pw = MagicMock()
+        mock_sp.return_value.start.return_value = pw
+        pw.chromium.launch.return_value = MagicMock()
+        pw.chromium.launch.return_value.new_context.return_value.new_page.return_value = MagicMock()
+
+        StealthBrowser().start()
+
+        assert "proxy" not in pw.chromium.launch.call_args[1]
 
 
 class TestStealthBrowserInit:
