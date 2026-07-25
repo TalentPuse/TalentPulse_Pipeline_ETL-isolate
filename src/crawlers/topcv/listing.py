@@ -19,6 +19,12 @@ logger = logging.getLogger(__name__)
 
 TOPCV_BASE = "https://www.topcv.vn"
 MAX_CONSECUTIVE_EMPTY = 3
+# TopCV serves a ~27KB Cloudflare challenge instead of the ~1.6MB real page on
+# some fetches (much more often from datacenter IPs like CI runners). Treat any
+# response below this size as a challenge and retry, otherwise a challenged
+# first fetch yields 0 URLs -> 0 seeded -> the whole pipeline runs empty.
+CHALLENGE_MIN_LEN = 60_000
+FETCH_RETRIES = 4
 
 # Matches a TopCV detail link, capturing everything up to `.html` (query stripped).
 _DETAIL_RE = re.compile(r"https://www\.topcv\.vn/viec-lam/[\w\-]+/\d+\.html")
@@ -75,7 +81,9 @@ class TopCVListingCrawler:
 
             logger.info(f"Fetching listing: {url}")
             try:
-                html = self.browser.fetch_page(url)
+                html = self.browser.fetch_page(
+                    url, retries=FETCH_RETRIES, min_len=CHALLENGE_MIN_LEN
+                )
             except Exception as e:
                 logger.error(f"Failed to fetch {url}: {e}")
                 consecutive_empty += 1

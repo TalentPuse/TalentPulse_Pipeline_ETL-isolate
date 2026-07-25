@@ -189,6 +189,42 @@ class TestStealthBrowserContextManager:
         pw.stop.assert_called_once()
 
 
+class TestFetchPageChallengeRetry:
+    """min_len/retries: retry short Cloudflare-challenge responses (topcv)."""
+
+    def _browser_with_sequence(self, monkeypatch, seq):
+        monkeypatch.setattr("src.crawlers.browser.time.sleep", lambda *a, **k: None)
+        sb = StealthBrowser()
+        calls = []
+
+        def fake_once(url, wait):
+            calls.append(url)
+            return seq[len(calls) - 1]
+
+        sb._fetch_once = fake_once
+        return sb, calls
+
+    def test_retries_until_page_exceeds_min_len(self, monkeypatch):
+        sb, calls = self._browser_with_sequence(
+            monkeypatch, ["x" * 100, "x" * 100, "y" * 70000]
+        )
+        html = sb.fetch_page("http://t", retries=4, min_len=60000)
+        assert len(html) == 70000
+        assert len(calls) == 3  # stopped as soon as a real page arrived
+
+    def test_returns_last_short_response_when_retries_exhausted(self, monkeypatch):
+        sb, calls = self._browser_with_sequence(monkeypatch, ["s" * 100] * 5)
+        html = sb.fetch_page("http://t", retries=3, min_len=60000)
+        assert len(html) == 100
+        assert len(calls) == 4  # initial try + 3 retries
+
+    def test_default_is_single_shot_no_retry(self, monkeypatch):
+        sb, calls = self._browser_with_sequence(monkeypatch, ["small"])
+        html = sb.fetch_page("http://t")
+        assert html == "small"
+        assert len(calls) == 1
+
+
 class TestConstants:
     def test_ua_pool_not_empty(self):
         assert len(UA_POOL) >= 2

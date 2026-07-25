@@ -17,6 +17,10 @@ from src.utils.config import config
 logger = logging.getLogger(__name__)
 
 SOURCE = "topcv"
+# See listing.py: TopCV sometimes returns a ~27KB Cloudflare challenge instead
+# of the ~1.8MB real detail page. Retry short responses before storing.
+CHALLENGE_MIN_LEN = 60_000
+FETCH_RETRIES = 4
 
 
 class TopCVDetailCrawler:
@@ -43,7 +47,9 @@ class TopCVDetailCrawler:
     def process_one(self, job_id: str, url: str) -> str:
         """Fetch + store a single job. Returns final status string."""
         try:
-            html = self.browser.fetch_page(url)
+            html = self.browser.fetch_page(
+                url, retries=FETCH_RETRIES, min_len=CHALLENGE_MIN_LEN
+            )
         except Exception as e:
             logger.error(f"Fetch failed for {url}: {e}")
             self.breaker.record(None)

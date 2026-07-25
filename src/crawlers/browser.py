@@ -91,16 +91,42 @@ class StealthBrowser:
         self._page = self._ctx.new_page()
         self._page.add_init_script(STEALTH_JS)
 
-    def fetch_page(self, url: str, wait_ms: int | None = None) -> str:
-        """Navigate to URL with stealth, return full HTML.
-
-        Clears cookies before each request to reset Cloudflare session.
-        """
-        wait = wait_ms if wait_ms is not None else self._default_wait_ms
+    def _fetch_once(self, url: str, wait: int) -> str:
         self._ctx.clear_cookies()
         self._page.goto(url, wait_until="domcontentloaded", timeout=60_000)
         self._page.wait_for_timeout(wait)
         return self._page.content()
+
+    def fetch_page(
+        self,
+        url: str,
+        wait_ms: int | None = None,
+        retries: int = 0,
+        min_len: int = 0,
+    ) -> str:
+        """Navigate to URL with stealth, return full HTML.
+
+        Clears cookies before each request to reset Cloudflare session.
+
+        When ``min_len`` > 0, a response shorter than it is treated as a
+        transient Cloudflare interstitial/challenge (topcv.vn serves a ~27KB
+        challenge vs ~1.6MB real pages) and re-fetched up to ``retries`` times
+        before giving up. Defaults (retries=0, min_len=0) preserve the original
+        single-shot behaviour for callers that don't opt in.
+        """
+        wait = wait_ms if wait_ms is not None else self._default_wait_ms
+        html = ""
+        for attempt in range(retries + 1):
+            html = self._fetch_once(url, wait)
+            if len(html) >= min_len:
+                return html
+            if attempt < retries:
+                logger.warning(
+                    f"Short response ({len(html)}B < {min_len}) for {url}; "
+                    f"likely a challenge, retry {attempt + 1}/{retries}"
+                )
+                time.sleep(1.5)
+        return html
 
     def close(self) -> None:
         if self._ctx:
