@@ -158,3 +158,31 @@ class JobDetailRepo:
                 """,
                 row,
             )
+
+    def record_reject_many(
+        self, rejects: "Iterable[tuple[dict, str, str, str | None]]"
+    ) -> int:
+        """Batch-insert rejects in ONE round-trip.
+
+        `rejects` is an iterable of (payload, reason, detail, minio_key). Like
+        upsert_many, this avoids opening a connection + INSERT per rejected row
+        (linkedin can reject hundreds per run), which otherwise storms the
+        warehouse's small connection pool.
+        """
+        rows = [
+            (
+                p.get("source"), p.get("source_job_id"), minio_key,
+                p.get("parser_version"), reason, detail, Json(p),
+            )
+            for (p, reason, detail, minio_key) in rejects
+        ]
+        if not rows:
+            return 0
+        sql = (
+            "INSERT INTO raw.job_detail_rejects "
+            "(source, source_job_id, minio_key, parser_version, "
+            "reject_reason, reject_detail, payload) VALUES %s"
+        )
+        with self._conn() as conn, conn.cursor() as cur:
+            execute_values(cur, sql, rows, page_size=200)
+            return cur.rowcount

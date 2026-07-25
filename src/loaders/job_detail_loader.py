@@ -7,6 +7,7 @@ possible by re-running the loader after relaxing a rule.
 import argparse
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 from src.loaders.validators import validate
@@ -74,9 +75,40 @@ class JobDetailLoader:
             logger.exception(f"upsert failed for {key}: {e}")
             return "failed"
 
+    def _prepare(self, key: str):
+        """Read + validate one JSON (runs in a worker thread — no DB).
+
+        Returns ('failed', None) | ('rejected', (payload, reason, detail, key))
+        | ('loaded', payload).
+        """
+        payload = self._read_json(key)
+        if payload is None:
+            return ("failed", None)  # _read_json already logged
+        if not payload.get("source") or not payload.get("source_job_id"):
+            logger.error(f"missing required fields in {key}")
+            return ("failed", None)
+        if self.validate_payload:
+            reject = validate(payload)
+            if reject is not None:
+                logger.info(
+                    f"REJECT {payload.get('source_job_id')} reason={reject[0]} detail={reject[1]}"
+                )
+                return ("rejected", (payload, reject[0], reject[1], key))
+        return ("loaded", payload)
+
     def run_batch(self, prefix: str = PARSED_PREFIX, *, dry_run: bool = False,
-                  since: datetime | None = None) -> dict:
+                  since: datetime | None = None, max_workers: int = 16) -> dict:
+        """Load a prefix of parsed JSON into raw.job_detail.
+
+        Reads + validates every object in parallel (I/O-bound R2 GETs), then
+        writes the whole batch with TWO connections total — one
+        ``upsert_many`` and one ``record_reject_many`` — instead of a fresh
+        connection + round-trip per row. On the tailnet with hundreds of rows
+        (linkedin rejects ~800/run) the old per-row path was both slow and
+        exhausted the warehouse's small connection pool.
+        """
         counters = {"loaded": 0, "rejected": 0, "skipped": 0, "failed": 0}
+        keys: list[str] = []
         paginator = self.minio.s3_client.get_paginator("list_objects_v2")
         for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
             for obj in page.get("Contents", []) or []:
@@ -88,9 +120,42 @@ class JobDetailLoader:
                     if last_mod and last_mod < since:
                         counters["skipped"] += 1
                         continue
-                outcome = self.load_one(key, dry_run=dry_run)
-                counters[outcome] += 1
-        logger.info(f"load done: {counters}  (dry_run={dry_run})")
+                keys.append(key)
+
+        to_load: list[dict] = []
+        to_reject: list[tuple] = []
+        workers = max(1, min(max_workers, len(keys)))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            for outcome, data in pool.map(self._prepare, keys):
+                if outcome == "failed":
+                    counters["failed"] += 1
+                elif outcome == "rejected":
+                    to_reject.append(data)
+                else:
+                    to_load.append(data)
+
+        if dry_run:
+            counters["loaded"] = len(to_load)
+            counters["rejected"] = len(to_reject)
+            logger.info(f"load done (dry_run): {counters}")
+            return counters
+
+        if to_load:
+            try:
+                self.repo.upsert_many(to_load)
+                counters["loaded"] = len(to_load)
+            except Exception as e:
+                logger.exception(f"batch upsert failed ({len(to_load)} rows): {e}")
+                counters["failed"] += len(to_load)
+        if to_reject:
+            try:
+                self.repo.record_reject_many(to_reject)
+                counters["rejected"] = len(to_reject)
+            except Exception as e:
+                logger.exception(f"batch reject-record failed ({len(to_reject)} rows): {e}")
+                counters["failed"] += len(to_reject)
+
+        logger.info(f"load done: {counters}")
         return counters
 
 

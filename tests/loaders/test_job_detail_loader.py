@@ -55,6 +55,19 @@ def _make_loader(keys_with_bodies, last_mods=None, *, validate_payload=True):
     return loader, minio, repo
 
 
+def _loaded_payloads(repo):
+    """The list passed to the single upsert_many batch call (or [] if not called)."""
+    if not repo.upsert_many.called:
+        return []
+    return list(repo.upsert_many.call_args.args[0])
+
+
+def _reject_tuples(repo):
+    if not repo.record_reject_many.called:
+        return []
+    return list(repo.record_reject_many.call_args.args[0])
+
+
 def test_loader_loads_three_jsons():
     keys = [
         ("parsed/details/vietnamworks/1.json", _payload(1)),
@@ -64,10 +77,11 @@ def test_loader_loads_three_jsons():
     loader, _, repo = _make_loader(keys)
     counters = loader.run_batch()
     assert counters == {"loaded": 3, "rejected": 0, "skipped": 0, "failed": 0}
-    assert repo.upsert.call_count == 3
-    # First call payload check
-    first_payload = repo.upsert.call_args_list[0].args[0]
-    assert first_payload["source_job_id"] == "1"
+    # ONE batched upsert, not one-per-row
+    assert repo.upsert_many.call_count == 1
+    loaded = _loaded_payloads(repo)
+    assert len(loaded) == 3
+    assert {p["source_job_id"] for p in loaded} == {"1", "2", "3"}
 
 
 def test_loader_skips_malformed_json():
@@ -80,7 +94,7 @@ def test_loader_skips_malformed_json():
     counters = loader.run_batch()
     assert counters["loaded"] == 2
     assert counters["failed"] == 1
-    assert repo.upsert.call_count == 2
+    assert len(_loaded_payloads(repo)) == 2
 
 
 def test_loader_skips_missing_required():
@@ -92,7 +106,7 @@ def test_loader_skips_missing_required():
     counters = loader.run_batch()
     assert counters["loaded"] == 1
     assert counters["failed"] == 1
-    assert repo.upsert.call_count == 1
+    assert len(_loaded_payloads(repo)) == 1
 
 
 def test_loader_dry_run_no_writes():
@@ -100,7 +114,8 @@ def test_loader_dry_run_no_writes():
     loader, _, repo = _make_loader(keys)
     counters = loader.run_batch(dry_run=True)
     assert counters["loaded"] == 1
-    repo.upsert.assert_not_called()
+    repo.upsert_many.assert_not_called()
+    repo.record_reject_many.assert_not_called()
 
 
 def test_loader_since_filter():
@@ -116,13 +131,13 @@ def test_loader_since_filter():
     counters = loader.run_batch(since=datetime(2026, 4, 15, tzinfo=timezone.utc))
     assert counters["loaded"] == 1
     assert counters["skipped"] == 1
-    assert repo.upsert.call_count == 1
+    assert len(_loaded_payloads(repo)) == 1
 
 
 def test_loader_failed_upsert_counts_as_failed():
     keys = [("parsed/details/vietnamworks/1.json", _payload(1))]
     loader, _, repo = _make_loader(keys)
-    repo.upsert.side_effect = RuntimeError("db down")
+    repo.upsert_many.side_effect = RuntimeError("db down")
     counters = loader.run_batch()
     assert counters["loaded"] == 0
     assert counters["failed"] == 1
@@ -137,7 +152,7 @@ def test_loader_skips_non_json_keys():
     counters = loader.run_batch()
     assert counters["loaded"] == 1
     assert counters["failed"] == 0
-    assert repo.upsert.call_count == 1
+    assert len(_loaded_payloads(repo)) == 1
 
 
 # --- v2: validation integration ---
@@ -154,11 +169,12 @@ def test_loader_rejects_out_of_focus():
     counters = loader.run_batch()
     assert counters["loaded"] == 1
     assert counters["rejected"] == 1
-    assert repo.upsert.call_count == 1
-    assert repo.record_reject.call_count == 1
-    reject_call = repo.record_reject.call_args
-    assert reject_call.args[1] == "OUT_OF_FOCUS"
-    assert reject_call.kwargs["minio_key"] == "parsed/details/vietnamworks/1.json"
+    assert len(_loaded_payloads(repo)) == 1
+    rejects = _reject_tuples(repo)
+    assert len(rejects) == 1
+    payload, reason, detail, key = rejects[0]
+    assert reason == "OUT_OF_FOCUS"
+    assert key == "parsed/details/vietnamworks/1.json"
 
 
 def test_loader_rejects_bad_salary_range():
@@ -173,8 +189,8 @@ def test_loader_rejects_bad_salary_range():
     counters = loader.run_batch()
     assert counters["rejected"] == 1
     assert counters["loaded"] == 0
-    repo.upsert.assert_not_called()
-    assert repo.record_reject.call_args.args[1] == "BAD_SALARY_RANGE"
+    repo.upsert_many.assert_not_called()
+    assert _reject_tuples(repo)[0][1] == "BAD_SALARY_RANGE"
 
 
 def test_loader_rejects_missing_title():
@@ -183,7 +199,7 @@ def test_loader_rejects_missing_title():
     loader, _, repo = _make_loader(keys)
     counters = loader.run_batch()
     assert counters["rejected"] == 1
-    assert repo.record_reject.call_args.args[1] == "MISSING_TITLE"
+    assert _reject_tuples(repo)[0][1] == "MISSING_TITLE"
 
 
 def test_loader_validation_can_be_disabled():
@@ -196,5 +212,5 @@ def test_loader_validation_can_be_disabled():
     counters = loader.run_batch()
     assert counters["loaded"] == 1
     assert counters["rejected"] == 0
-    repo.upsert.assert_called_once()
-    repo.record_reject.assert_not_called()
+    repo.upsert_many.assert_called_once()
+    repo.record_reject_many.assert_not_called()
