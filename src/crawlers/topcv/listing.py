@@ -25,6 +25,10 @@ MAX_CONSECUTIVE_EMPTY = 3
 # first fetch yields 0 URLs -> 0 seeded -> the whole pipeline runs empty.
 CHALLENGE_MIN_LEN = 60_000
 FETCH_RETRIES = 4
+# Budget for a Cloudflare managed-challenge page to auto-solve in a real browser
+# (its JS runs, gets cf_clearance, then loads the real page). Content-ready
+# polling returns early when the real page arrives, so this is just the cap.
+CHALLENGE_WAIT_MS = 20_000
 
 # Matches a TopCV detail link, capturing everything up to `.html` (query stripped).
 _DETAIL_RE = re.compile(r"https://www\.topcv\.vn/viec-lam/[\w\-]+/\d+\.html")
@@ -82,7 +86,11 @@ class TopCVListingCrawler:
             logger.info(f"Fetching listing: {url}")
             try:
                 html = self.browser.fetch_page(
-                    url, retries=FETCH_RETRIES, min_len=CHALLENGE_MIN_LEN
+                    url,
+                    wait_ms=CHALLENGE_WAIT_MS,
+                    retries=FETCH_RETRIES,
+                    min_len=CHALLENGE_MIN_LEN,
+                    persist_cookies=True,
                 )
             except Exception as e:
                 logger.error(f"Failed to fetch {url}: {e}")

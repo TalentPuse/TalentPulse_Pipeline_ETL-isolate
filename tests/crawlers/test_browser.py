@@ -247,7 +247,7 @@ class TestFetchPageChallengeRetry:
         sb = StealthBrowser()
         calls = []
 
-        def fake_once(url, wait, ready_min_len=0):
+        def fake_once(url, wait, ready_min_len=0, persist_cookies=False):
             calls.append(url)
             return seq[len(calls) - 1]
 

@@ -125,8 +125,14 @@ class StealthBrowser:
         self._page = self._ctx.new_page()
         self._page.add_init_script(STEALTH_JS)
 
-    def _fetch_once(self, url: str, wait: int, ready_min_len: int = 0) -> str:
-        self._ctx.clear_cookies()
+    def _fetch_once(
+        self, url: str, wait: int, ready_min_len: int = 0, persist_cookies: bool = False
+    ) -> str:
+        # Persisting cookies keeps Cloudflare's cf_clearance token across requests
+        # so a challenge only has to be solved once (needed for topcv, whose CF is
+        # stricter). Other sources clear cookies each time to reset CF sessions.
+        if not persist_cookies:
+            self._ctx.clear_cookies()
         self._page.goto(url, wait_until="domcontentloaded", timeout=60_000)
         if ready_min_len <= 0:
             # No readiness hint: keep the original fixed dwell (other sources).
@@ -151,6 +157,7 @@ class StealthBrowser:
         wait_ms: int | None = None,
         retries: int = 0,
         min_len: int = 0,
+        persist_cookies: bool = False,
     ) -> str:
         """Navigate to URL with stealth, return full HTML.
 
@@ -165,7 +172,9 @@ class StealthBrowser:
         wait = wait_ms if wait_ms is not None else self._default_wait_ms
         html = ""
         for attempt in range(retries + 1):
-            html = self._fetch_once(url, wait, ready_min_len=min_len)
+            html = self._fetch_once(
+                url, wait, ready_min_len=min_len, persist_cookies=persist_cookies
+            )
             if len(html) >= min_len:
                 return html
             if attempt < retries:

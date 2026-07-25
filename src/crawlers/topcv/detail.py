@@ -21,6 +21,7 @@ SOURCE = "topcv"
 # of the ~1.8MB real detail page. Retry short responses before storing.
 CHALLENGE_MIN_LEN = 60_000
 FETCH_RETRIES = 4
+CHALLENGE_WAIT_MS = 20_000  # cap for a CF managed challenge to auto-solve
 
 
 class TopCVDetailCrawler:
@@ -48,7 +49,11 @@ class TopCVDetailCrawler:
         """Fetch + store a single job. Returns final status string."""
         try:
             html = self.browser.fetch_page(
-                url, retries=FETCH_RETRIES, min_len=CHALLENGE_MIN_LEN
+                url,
+                wait_ms=CHALLENGE_WAIT_MS,
+                retries=FETCH_RETRIES,
+                min_len=CHALLENGE_MIN_LEN,
+                persist_cookies=True,
             )
         except Exception as e:
             logger.error(f"Fetch failed for {url}: {e}")
