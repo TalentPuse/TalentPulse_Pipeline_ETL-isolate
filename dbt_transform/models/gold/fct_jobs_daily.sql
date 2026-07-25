@@ -1,11 +1,17 @@
 {{ config(
     materialized='incremental',
-    unique_key=['source', 'source_job_id', 'snapshot_date']
+    unique_key=['source', 'source_job_id', 'snapshot_date'],
+    incremental_strategy='delete+insert'
 ) }}
 
--- Gold: one row per (job × snapshot_date). Incremental: each dbt run adds today's
--- snapshot if not already there. Build trend analytics on top (views growth,
--- salary drift, active/expired lifecycle).
+-- Gold: one row per (job × snapshot_date). Incremental with delete+insert on the
+-- unique key: every run rebuilds TODAY's snapshot from the full current silver
+-- (delete today's rows for the incoming jobs, re-insert) while preserving past
+-- days. Build trend analytics on top (views growth, salary drift, lifecycle).
+--
+-- NB: do NOT re-add a `where current_date not in (select snapshot_date ...)`
+-- guard. It froze the gold layer at the size of the day's FIRST dbt run — every
+-- later run in the same day inserted 0 rows, dropping jobs crawled afterwards.
 
 with today_snapshot as (
     select
@@ -35,9 +41,3 @@ with today_snapshot as (
 )
 
 select * from today_snapshot
-
-{% if is_incremental() %}
-where current_date not in (
-    select distinct snapshot_date from {{ this }}
-)
-{% endif %}
