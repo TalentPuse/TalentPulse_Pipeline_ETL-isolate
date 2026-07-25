@@ -5,6 +5,7 @@ import gzip
 import json
 import logging
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from botocore.exceptions import ClientError
 
@@ -66,24 +67,42 @@ class MinIOParser(ABC):
         )
         return parsed_key
 
-    def run_batch(self, prefix: str | None = None, *, force: bool = False) -> dict:
-        """Parse all HTML.gz files under prefix."""
+    def run_batch(
+        self, prefix: str | None = None, *, force: bool = False, max_workers: int = 16
+    ) -> dict:
+        """Parse all HTML.gz files under prefix, in parallel.
+
+        Parsing each object is I/O-bound (two R2 round-trips: download the
+        gzipped HTML, upload the parsed JSON) plus CPU-light HTML parsing, so a
+        thread pool overlaps the network waits and cuts wall-clock roughly
+        `max_workers`x. boto3's S3 client is thread-safe for concurrent calls and
+        `parse_html` is pure, so no shared state is mutated across threads.
+        """
         prefix = prefix or self.HTML_PREFIX
-        counters = {"success": 0, "skipped": 0, "failed": 0}
+        keys: list[str] = []
         paginator = self.minio.s3_client.get_paginator("list_objects_v2")
         for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
             for obj in page.get("Contents", []) or []:
                 key = obj["Key"]
-                if not key.endswith(".html.gz"):
-                    continue
+                if key.endswith(".html.gz"):
+                    keys.append(key)
+
+        counters = {"success": 0, "skipped": 0, "failed": 0}
+        workers = max(1, min(max_workers, len(keys)))
+
+        def _parse(key: str):
+            return self.process_one(key, force=force)
+
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {pool.submit(_parse, k): k for k in keys}
+            for fut in as_completed(futures):
+                key = futures[fut]
                 try:
-                    parsed_key = self.process_one(key, force=force)
-                    if parsed_key is None:
-                        counters["skipped"] += 1
-                    else:
-                        counters["success"] += 1
+                    parsed_key = fut.result()
+                    counters["skipped" if parsed_key is None else "success"] += 1
                 except Exception as e:
                     logger.error(f"Parse failed {key}: {e}")
                     counters["failed"] += 1
-        logger.info(f"batch done: {counters}")
+
+        logger.info(f"batch done: {counters} ({len(keys)} files, {workers} workers)")
         return counters
