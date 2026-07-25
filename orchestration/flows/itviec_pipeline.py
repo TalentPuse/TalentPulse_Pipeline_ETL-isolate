@@ -102,12 +102,12 @@ def load_warehouse() -> dict:
     return result
 
 
-@task(name="itviec_dbt_transform", retries=1, timeout_seconds=600)
+@task(name="itviec_dbt_transform", retries=1, timeout_seconds=3600)
 def dbt_transform() -> str:
     return run_dbt()
 
 
-@task(name="itviec_normalize", retries=1, timeout_seconds=600)
+@task(name="itviec_normalize", retries=1, timeout_seconds=3600)
 def normalize() -> str:
     return run_normalizer()
 

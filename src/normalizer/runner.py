@@ -137,47 +137,57 @@ class NormalizerRunner:
         )
 
     def _write_results(self, conn, results: list[NormResult], run_id: str) -> None:
-        """Batch write normalization results."""
+        """Batch write normalization results in ONE multi-row INSERT.
+
+        Was one execute() per row — thousands of tailnet round-trips that made
+        the normalize task blow its 600s Prefect timeout on large runs.
+        """
         if not results:
             return
+        from psycopg2.extras import execute_values
+
+        rows = [
+            (r.source, r.source_job_id, run_id, r.job_category,
+             r.category_method, r.category_confidence, r.category_matched_on)
+            for r in results
+        ]
+        sql = (
+            "INSERT INTO normalization.job_normalization "
+            "(source, source_job_id, run_id, job_category, category_method, "
+            "category_confidence, category_matched_on) VALUES %s"
+        )
         with conn.cursor() as cur:
-            for r in results:
-                cur.execute(
-                    """
-                    INSERT INTO normalization.job_normalization
-                        (source, source_job_id, run_id,
-                         job_category, category_method, category_confidence, category_matched_on)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    """,
-                    (
-                        r.source, r.source_job_id, run_id,
-                        r.job_category, r.category_method, r.category_confidence,
-                        r.category_matched_on,
-                    ),
-                )
+            execute_values(cur, sql, rows, page_size=500)
 
     def _write_drift(self, conn, entries: list[DriftEntry], run_id: str) -> None:
-        """Upsert drift log entries."""
+        """Batch-upsert drift log entries in ONE INSERT.
+
+        Deduped by (dimension, raw_value, source) first: a single INSERT ...
+        ON CONFLICT cannot touch the same conflict key twice, and per-row
+        execute() over the tailnet was slow.
+        """
         if not entries:
             return
+        from psycopg2.extras import execute_values
+
+        rows = list({
+            (d.dimension, d.raw_value, d.source): (run_id, d.dimension, d.raw_value, d.source)
+            for d in entries
+        }.values())
+        sql = (
+            "INSERT INTO normalization.drift_log "
+            "(run_id, dimension, raw_value, source, frequency, first_seen_at, last_seen_at) "
+            "VALUES %s "
+            "ON CONFLICT (dimension, raw_value, source) DO UPDATE SET "
+            "frequency = drift_log.frequency + 1, last_seen_at = now(), "
+            "status = CASE WHEN drift_log.status = 'resolved' THEN 'regression' "
+            "ELSE drift_log.status END, run_id = EXCLUDED.run_id"
+        )
         with conn.cursor() as cur:
-            for d in entries:
-                cur.execute(
-                    """
-                    INSERT INTO normalization.drift_log
-                        (run_id, dimension, raw_value, source, frequency, first_seen_at, last_seen_at)
-                    VALUES (%s, %s, %s, %s, 1, now(), now())
-                    ON CONFLICT (dimension, raw_value, source) DO UPDATE SET
-                        frequency = drift_log.frequency + 1,
-                        last_seen_at = now(),
-                        status = CASE
-                            WHEN drift_log.status = 'resolved' THEN 'regression'
-                            ELSE drift_log.status
-                        END,
-                        run_id = EXCLUDED.run_id
-                    """,
-                    (run_id, d.dimension, d.raw_value, d.source),
-                )
+            execute_values(
+                cur, sql, rows,
+                template="(%s, %s, %s, %s, 1, now(), now())", page_size=500,
+            )
 
 
 def main() -> None:
