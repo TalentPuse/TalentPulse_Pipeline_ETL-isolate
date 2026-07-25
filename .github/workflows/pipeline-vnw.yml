@@ -19,7 +19,7 @@ jobs:
   run:
     name: Run vnw-pipeline (run-once)
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 300
     env:
       # Prefect (VPS, over tailnet) - flow still reports the run even
       # though it does not register a .serve() cron deployment.

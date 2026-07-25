@@ -22,7 +22,7 @@ jobs:
     # Must stay ABOVE listing (~12m) + detail budget (LINKEDIN_DETAIL_MAX_SECONDS,
     # 20m) + parse/load/normalize/dbt/alerts (~10m). At 45m the job was killed
     # mid-detail-crawl and nothing downstream ever ran.
-    timeout-minutes: 180
+    timeout-minutes: 300
     env:
       # Prefect (VPS, over tailnet)
       PREFECT_API_URL: http://${{ vars.WAREHOUSE_TAILNET_IP }}:4200/api
