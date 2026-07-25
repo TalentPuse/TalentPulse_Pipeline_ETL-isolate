@@ -1,5 +1,6 @@
 import logging
 import boto3
+from botocore.config import Config as BotoConfig
 from botocore.exceptions import ClientError
 from src.utils.config import config
 
@@ -26,6 +27,9 @@ class MinioClient:
             aws_access_key_id=config.S3_ACCESS_KEY,
             aws_secret_access_key=config.S3_SECRET_KEY,
             region_name=config.S3_REGION,
+            # Parse + load run 16 threads; the default pool of 10 forced
+            # connections to be dropped + reopened ("Connection pool is full").
+            config=BotoConfig(max_pool_connections=32),
         )
         self._ensure_bucket_exists(config.S3_BUCKET_NAME)
 

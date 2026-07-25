@@ -19,7 +19,7 @@ jobs:
   run:
     name: Run itviec-pipeline (run-once)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 180
     env:
       # Prefect (VPS, over tailnet)
       PREFECT_API_URL: http://${{ vars.WAREHOUSE_TAILNET_IP }}:4200/api
