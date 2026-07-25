@@ -67,7 +67,8 @@ def run_normalizer() -> str:
 
 
 def run_dbt(dbt_dir: str = "/app/dbt_transform") -> str:
-    """Run dbt seed + run, with full-refresh for fct_jobs_daily."""
+    """Run dbt seed + run. fct_jobs_daily builds INCREMENTALLY (no drop, no
+    gold-layer downtime, preserves snapshot history)."""
     logger = get_run_logger()
     # Note the `+` graph operator on both lines. fct_jobs_daily is incremental
     # and built with --full-refresh in its own pass, so it is excluded from the
@@ -77,10 +78,17 @@ def run_dbt(dbt_dir: str = "/app/dbt_transform") -> str:
     # fails with `relation "dbt_dev_gold.fct_jobs_daily" does not exist`.
     # `fct_jobs_daily+` = fct_jobs_daily and all its descendants, so the second
     # pass builds the fact first and its dependents right after, in DAG order.
+    # fct_jobs_daily runs INCREMENTAL (no --full-refresh). --full-refresh does
+    # CREATE-TABLE-AS from the model, which is `select * from today_snapshot`
+    # (current_date only): it both (a) DROPs the table mid-run, so Metabase
+    # queries against the gold layer fail during every pipeline run, and (b)
+    # WIPES all historical snapshots, keeping only today's. Incremental appends
+    # today's snapshot into the existing table (guarded against same-day dupes),
+    # so the table is never dropped, history is preserved, and it's much faster.
     cmds = [
         "dbt seed",
         "dbt run --exclude fct_jobs_daily+",
-        "dbt run --select fct_jobs_daily+ --full-refresh",
+        "dbt run --select fct_jobs_daily+",
     ]
     for cmd in cmds:
         full_cmd = f"{cmd} --profiles-dir . --project-dir {dbt_dir}"
