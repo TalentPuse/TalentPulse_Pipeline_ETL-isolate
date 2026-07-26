@@ -55,7 +55,7 @@ def seed_queue() -> dict:
     return result
 
 
-@task(name="detail_crawl", retries=2, retry_delay_seconds=120, timeout_seconds=3600)
+@task(name="detail_crawl", retries=2, retry_delay_seconds=120, timeout_seconds=7200)
 def detail_crawl(max_jobs: int | None = None) -> dict:
     logger = get_run_logger()
     t0 = time.time()
