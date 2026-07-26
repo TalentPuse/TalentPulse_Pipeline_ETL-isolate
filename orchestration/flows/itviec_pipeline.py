@@ -55,7 +55,7 @@ def seed_queue(urls: list[str]) -> dict:
     return result
 
 
-@task(name="itviec_detail_crawl", retries=1, timeout_seconds=7200)
+@task(name="itviec_detail_crawl", retries=0, timeout_seconds=7200)
 def detail_crawl(max_jobs: int | None = None) -> dict:
     logger = get_run_logger()
     t0 = time.time()
