@@ -22,7 +22,17 @@ import os
 import time
 
 import psycopg2
+import psycopg2.extras
 from psycopg2.extras import execute_values
+
+# Doc JSON/JSONB ve dang CHUOI THO thay vi parse thanh dict.
+#
+# Mac dinh psycopg2 parse jsonb -> dict Python, nhung luc ghi lai no khong biet
+# chuyen dict thanh SQL va nem "can't adapt type 'dict'". Job nay chi chuyen byte
+# tu A sang B, khong doc noi dung JSON, nen tat parse la vua dung vua nhanh.
+# Da vap that: silver_job_detail chet o lan chay thu dau tien.
+psycopg2.extras.register_default_json(loads=lambda x: x)
+psycopg2.extras.register_default_jsonb(loads=lambda x: x)
 from prefect import flow, get_run_logger, task
 from prefect.artifacts import create_markdown_artifact
 
@@ -84,7 +94,16 @@ def sync_object(schema: str, name: str, is_view: bool) -> dict:
 
     with psycopg2.connect(config.get_db_uri()) as wh:
         with wh.cursor() as wc:
-            wc.execute(f"SELECT * FROM {src_fq}")
+            # Doi tuong nguon co the CHUA TON TAI (dbt chua chay het cac model).
+            # Mot bang thieu KHONG duoc phep chan nhung bang con lai: spec doi
+            # "loud but harmless" — bao that to, nhung du lieu hom qua o web van
+            # nguyen ven va cac doi tuong khac van duoc cap nhat.
+            # Da vap that: silver_skill_long chua build lam abort ca flow.
+            try:
+                wc.execute(f"SELECT * FROM {src_fq}")
+            except psycopg2.errors.UndefinedTable:
+                logger.error(f"{src_fq}: KHONG TON TAI o kho — bo qua, giu nguyen ban cu o web")
+                return {"object": src_fq, "rows": 0, "seconds": 0.0, "missing": True}
             rows = wc.fetchall()
             cols = [d[0] for d in wc.description]
 
@@ -124,7 +143,7 @@ def sync_object(schema: str, name: str, is_view: bool) -> dict:
 
     dur = time.time() - t0
     logger.info(f"{src_fq}: {len(rows)} rows in {fmt_duration(dur)}")
-    return {"object": src_fq, "rows": len(rows), "seconds": round(dur, 2)}
+    return {"object": src_fq, "rows": len(rows), "seconds": round(dur, 2), "missing": False}
 
 
 @flow(name="sync-to-web")
@@ -142,13 +161,17 @@ def sync_to_web_flow() -> dict:
 
     # Mot lan sync rong phai NHIN THAY DUOC. Thieu cho nay thi `fct_jobs_daily` = 0
     # dong se troi qua im lang va website hien bang trong ma khong ai biet.
-    empty = [r["object"] for r in results if r["rows"] == 0]
+    empty = [r["object"] for r in results if r["rows"] == 0 and not r.get("missing")]
+    missing = [r["object"] for r in results if r.get("missing")]
 
     lines = ["| Object | Rows | Seconds |", "|---|---|---|"]
     lines += [f"| {r['object']} | {r['rows']} | {r['seconds']} |" for r in results]
     if empty:
         lines.append("")
         lines.append(f"**RONG: {', '.join(empty)}** — kiem tra dbt da chay xong chua.")
+    if missing:
+        lines.append("")
+        lines.append(f"**THIEU O KHO: {', '.join(missing)}** — dbt chua build model nay.")
 
     create_markdown_artifact(
         key="sync-to-web",
@@ -156,12 +179,14 @@ def sync_to_web_flow() -> dict:
         description=f"Warehouse -> web: {total_rows} rows in {fmt_duration(time.time() - t0)}",
     )
 
+    if missing:
+        logger.error(f"Doi tuong KHONG co o kho: {missing}")
     if empty:
         logger.error(f"Sync hoan tat nhung co bang RONG: {empty}")
     else:
         logger.info(f"Sync xong: {len(results)} objects, {total_rows} rows")
 
-    return {"objects": len(results), "total_rows": total_rows, "empty": empty}
+    return {"objects": len(results), "total_rows": total_rows, "empty": empty, "missing": missing}
 
 
 if __name__ == "__main__":
