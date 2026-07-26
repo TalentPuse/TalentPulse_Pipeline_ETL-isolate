@@ -107,6 +107,24 @@ def sync_object(schema: str, name: str, is_view: bool) -> dict:
             rows = wc.fetchall()
             cols = [d[0] for d in wc.description]
 
+            # Lay KIEU THAT cua tung cot tu nguon.
+            #
+            # Truoc day khi bang dich chua ton tai, code tao moi cot la `text`.
+            # Sync bao "thanh cong, 3019 dong" nhung schema sinh ra lam GAY app:
+            # fct_jobs_daily.is_active thanh text, va `WHERE f.is_active AND ...`
+            # nem "argument of AND must be type boolean, not type text".
+            # Doan kieu la sai; hoi Postgres moi dung.
+            wc.execute(
+                """
+                SELECT attname, format_type(atttypid, atttypmod)
+                FROM pg_attribute
+                WHERE attrelid = %s::regclass AND attnum > 0 AND NOT attisdropped
+                ORDER BY attnum
+                """,
+                (src_fq,),
+            )
+            coltypes = dict(wc.fetchall())
+
     with psycopg2.connect(_web_dsn()) as web:
         with web.cursor() as bc:
             bc.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
@@ -123,7 +141,7 @@ def sync_object(schema: str, name: str, is_view: bool) -> dict:
                     f"(LIKE {schema}.{name} INCLUDING DEFAULTS)"
                 )
             else:
-                col_defs = ", ".join(f'"{c}" text' for c in cols)
+                col_defs = ", ".join(f'"{c}" {coltypes.get(c, "text")}' for c in cols)
                 bc.execute(f"CREATE TABLE {schema}.{staging} ({col_defs})")
 
             if rows:
