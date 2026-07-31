@@ -139,8 +139,10 @@ drop/recreate, handles views, and moves 3 MB in under a second. Use that.
 
 ## 5. Sync job
 
-A Prefect flow — `orchestration/flows/sync_to_web.py` — scheduled **after
-skill-extraction** (VN 15:00) so it publishes a finished warehouse:
+A Prefect flow — `orchestration/flows/sync_to_web.py` — run once a day by
+`.github/workflows/pipeline-sync-to-web.yml` (cron `0 9 * * *` UTC = **16:00 VN**),
+i.e. **after** skill-extraction at 15:00, so it publishes a finished warehouse
+rather than one still being rebuilt:
 
 1. Connect to warehouse (read) and web DB (write), both over the tailnet.
 2. For each object: `SELECT *` from the warehouse → load into a staging table on web.

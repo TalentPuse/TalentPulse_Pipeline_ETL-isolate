@@ -1,0 +1,60 @@
+name: Pipeline - Sync to Web
+
+# Cron is UTC. "0 9 * * *" UTC == 16:00 Asia/Ho_Chi_Minh (UTC+7).
+#
+# Position in the day matters. skill-extraction lands at VN 15:00 and re-runs dbt
+# as its last step, so anything earlier than 16:00 would publish a warehouse that
+# is still being rebuilt. Backup runs at VN 20:00, after this, so the dump also
+# captures a warehouse whose gold layer has already been shipped to the web box.
+on:
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: pipeline-sync-to-web
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  run:
+    name: Sync job tables warehouse -> web (run-once)
+    runs-on: ubuntu-latest
+    # Moves a few MB over the tailnet; a normal run is seconds. A generous cap
+    # here only guards against a hung connection, it is not a working budget.
+    timeout-minutes: 20
+    env:
+      PREFECT_API_URL: http://${{ vars.WAREHOUSE_TAILNET_IP }}:4200/api
+
+      # SOURCE: the warehouse. Read-only for this flow.
+      DB_HOST: ${{ vars.WAREHOUSE_TAILNET_IP }}
+      DB_PORT: "5432"
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_NAME: ${{ vars.DB_NAME || 'warehouse' }}
+
+      # TARGET: Postgres on the WEB box, over the tailnet. Deliberately a full DSN
+      # secret rather than assembled from WEB_TAILNET_IP + shared DB_* credentials:
+      # the web box has its own database, its own user, and its own password, and
+      # reusing the warehouse credentials here is how a sync ends up writing to the
+      # database it was supposed to be reading from.
+      WEB_DATABASE_URL: ${{ secrets.WEB_DATABASE_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run sync-to-web
+        uses: ./.github/actions/run-flow
+        with:
+          image-suffix: worker
+          module: orchestration.flows.sync_to_web
+          image-tag: develop
+          ts-oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          ts-oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+# GitHub registers schedule/workflow_dispatch workflows only when the file is
+# added or modified in a push to the default branch. This line forces that.

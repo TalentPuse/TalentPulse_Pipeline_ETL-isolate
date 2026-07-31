@@ -89,6 +89,7 @@ runs:
           -e CRAWL_STALE_CLAIM_MINUTES \
           -e SKIP_FOCUS_SOURCES \
           -e DASHBOARD_API_URL \
+          -e WEB_DATABASE_URL \
           -e ALERT_DISPATCH_SECRET \
           -e TELEGRAM_WEBHOOK_SECRET \
           -e TELEGRAM_BOT_TOKEN \

@@ -208,4 +208,21 @@ def sync_to_web_flow() -> dict:
 
 
 if __name__ == "__main__":
-    sync_to_web_flow()
+    import os
+
+    if os.getenv("PREFECT_DEPLOY", "0") == "1":
+        # Registers a long-lived Prefect deployment. NOT how production runs this:
+        # the schedule that actually fires is the cron in
+        # .github/workflows/pipeline-sync-to-web.yml, and run-flow deliberately
+        # never forwards PREFECT_DEPLOY (setting it would turn a scheduled job
+        # into a process that blocks forever). Kept for parity with the other
+        # flows and for anyone running a Prefect worker locally. The cron below
+        # mirrors the workflow's "0 9 * * *" UTC == 16:00 VN — change both or
+        # neither.
+        sync_to_web_flow.serve(
+            name="sync-to-web-daily",
+            cron="0 9 * * *",
+            tags=["sync", "web"],
+        )
+    else:
+        sync_to_web_flow()
