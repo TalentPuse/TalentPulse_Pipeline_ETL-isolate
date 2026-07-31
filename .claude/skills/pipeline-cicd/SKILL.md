@@ -68,11 +68,18 @@ Prefect 2 OSS has no authentication, which is why compose binds it to
 
 ## Git rules for this repo
 
-`pipeline_data` is no longer forked: canonical `TalentPuse/TalentPulse_Pipeline_ETL`
-is `origin`, `develop` tracks `origin/develop`, so a bare `git push` is safe here
-(unlike `dashboard/backend` and `dashboard/frontend`, which still carry a fork as
-`origin`). The canonical repo has **no `main` branch** — the local `main` is an
-orphan left from the fork; do not use it. Deploys happen through CI, not by hand.
+**Canonical remote is `isolate` → `TalentPuse/TalentPulse_Pipeline_ETL-isolate`.
+Push with `git push isolate develop`, explicitly.**
+
+`develop` still *tracks* `origin/develop`, and `origin` points at the older
+non-isolate repo — so a bare `git push` here goes to the **wrong repository** and
+`git status` will happily tell you that you are "up to date" with it. Check
+`git remote -v` before pushing; do not infer the target from the tracking branch.
+This went wrong on 2026-07-31: two commits landed on `origin/develop` before being
+pushed to `isolate` (left in place deliberately rather than force-rewritten).
+
+The canonical repo has **no `main` branch** — the local `main` is an orphan left
+from the old fork; do not use it. Deploys happen through CI, not by hand.
 
 ## Secrets vs vars
 
