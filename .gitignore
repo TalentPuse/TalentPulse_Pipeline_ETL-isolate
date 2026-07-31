@@ -20,11 +20,16 @@ env/
 # ===== IDE =====
 .vscode/
 .idea/
-.claude/
 *.swp
 *.swo
 .DS_Store
 Thumbs.db
+
+# ===== Claude Code harness =====
+# .claude/ (skills, hooks, shared settings) IS tracked so the whole team gets the
+# same harness. Only per-developer overrides and local state stay out.
+.claude/settings.local.json
+.claude/*.local.json
 
 # ===== Secrets =====
 .env
