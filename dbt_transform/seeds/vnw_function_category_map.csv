@@ -1,0 +1,100 @@
+vnw_function,job_category,beats_title
+"Sales/Business Development",Business Development,true
+"Sales Engineer/Technical Sales",Technical Sales,true
+"Business/System Analysis",Business Analyst,true
+"Data Engineer/Data Analyst/AI",Data Analyst,false
+"Software Developer",Software Engineer,false
+"System/Cloud/DevOps Engineer",DevOps Engineer,false
+"IT Support/Help Desk",Technical Support,false
+"QA/QC/Software Testing",QA Engineer,false
+"Quality Assurance/Quality Control/Quality Management",QA Engineer,false
+"IT Product Management/Project Management",Project Manager,false
+"Project Management",Project Manager,false
+"Project Development/Contracts",Project Manager,false
+"IT Management",Technical Lead,false
+"Database Administration",Database Administrator,false
+"UX/UI Design",UX Designer,false
+"Hardware Developer",Embedded Engineer,false
+"Telecommunications",Network Engineer,false
+"Security",Cyber Security,false
+"Digital Transformation",Data Management,false
+"Research & Development",Research & Development,false
+"Telesales",Sales Operations,false
+"Sales Administration",Sales Operations,false
+"Accounts & Relationship Management",Account Manager,false
+"Agency Account Management",Account Manager,false
+"Client Services",Account Manager,false
+"Commercial Sales, Leasing & Property Management",Real Estate,false
+"Property Development",Real Estate,false
+"Real Estate Analysis",Real Estate,false
+"Financial Analysis & Research",Accounting & Finance,false
+"Financial Managers & Controllers",Accounting & Finance,false
+"General Accounting",Accounting & Finance,false
+"Management Accounting",Accounting & Finance,false
+"Financial Accounting",Accounting & Finance,false
+"Revenue Accounting",Accounting & Finance,false
+"Credit",Accounting & Finance,false
+"Debt Collection",Accounting & Finance,false
+"Investment",Accounting & Finance,false
+"Stockbroking & Trading",Accounting & Finance,false
+"Banking/Finance/Commercial Law",Accounting & Finance,false
+"Marketing",Marketing,false
+"Digital Marketing",Marketing,false
+"Product Marketing",Marketing,false
+"Trade Marketing",Marketing,false
+"Content Marketing/Copywriter",Marketing,false
+"Brand Management",Marketing,false
+"Market Research & Analysis",Marketing,false
+"Public Relations & Corporate Affairs",Marketing,false
+"Event Management",Marketing,false
+"General HR",Human Resources,false
+"Recruitment",Human Resources,false
+"Training and Development",Human Resources,false
+"Employee Engagement",Human Resources,false
+"Performance & Career Management",Human Resources,false
+"Graphic Design",Creative Design,false
+"Industrial Design/Technical Design",Creative Design,false
+"Fashion Design/Jewelry Design",Creative Design,false
+"Interior Design",Creative Design,false
+"Architecture Design/Architectural Drafting",Creative Design,false
+"Customer Service",Customer Service,false
+"Customer Service - Call Center",Customer Service,false
+"Customer Service - Customer Facing",Customer Service,false
+"Student Services",Customer Service,false
+"Supply Chain Management",Supply Chain & Logistics,false
+"Procurement & Inventory",Supply Chain & Logistics,false
+"Warehouse & Distribution",Supply Chain & Logistics,false
+"Freight/Cargo Forwarding",Supply Chain & Logistics,false
+"Import/Export & Customs",Supply Chain & Logistics,false
+"Road Transport",Supply Chain & Logistics,false
+"Fleet Management",Supply Chain & Logistics,false
+"Merchandising",Supply Chain & Logistics,false
+"Civil Engineering",Manufacturing & Engineering,false
+"Electrical/Electronic",Manufacturing & Engineering,false
+"Mechanical & HVAC",Manufacturing & Engineering,false
+"Auto Mechanic",Manufacturing & Engineering,false
+"Automotive Engineering",Manufacturing & Engineering,false
+"Chemical Engineering",Manufacturing & Engineering,false
+"CNC Technician",Manufacturing & Engineering,false
+"Machine Operator",Manufacturing & Engineering,false
+"Maintenance Technician",Manufacturing & Engineering,false
+"Assembly & Process Work",Manufacturing & Engineering,false
+"Production Operation & Planning",Manufacturing & Engineering,false
+"Health, Safety & Environment",Manufacturing & Engineering,false
+"Facilities Management",Manufacturing & Engineering,false
+"Pharmacy Distribution",Healthcare & Life Sciences,false
+"Pharmacist",Healthcare & Life Sciences,false
+"Biotechnologies",Healthcare & Life Sciences,false
+"Food Technology",Healthcare & Life Sciences,false
+"Teaching/Training",Education & Training,false
+"Educational Consulting",Education & Training,false
+"Educational Management",Education & Training,false
+"Compliance & Risk",Legal & Compliance,false
+"Construction Law",Legal & Compliance,false
+"Administration",Administration,false
+"Secretary",Administration,false
+"Interpreter/Translator",Administration,false
+"General Management",General Management,false
+"Corporate Planning/Corporate Advisory",General Management,false
+"F&B Management",General Management,false
+"Tour Operator",General Management,false

@@ -24,19 +24,38 @@ models:
               values: ['Intern/Student', 'Fresher/Entry level', 'Mid-level', 'Senior',
                        'Manager', 'Director+']
       - name: job_category
-        description: "Standardized job category from title keywords + source metadata. Never NULL — defaults to Other."
+        description: >
+          Standardized job category. Resolution order: VietnamWorks job_function
+          (for the three functions marked beats_title) -> title keyword seed ->
+          the rest of the VietnamWorks function taxonomy -> normalization engine
+          -> 'Other'. Never NULL. Note the non-tech values: keyword searches drag
+          in Marketing/HR/Accounting/etc roles, and labelling them beats dumping
+          them all into 'Other', which then stops meaning anything.
         tests:
           - not_null
           - accepted_values:
-              values: ['AI Engineer', 'Backend Developer', 'Frontend Developer',
-                       'Fullstack Developer', 'Data Engineer', 'Data Analyst',
-                       'Data Scientist', 'Data Management', 'Business Analyst',
-                       'QA Engineer', 'DevOps Engineer', 'Cloud Engineer',
-                       'Mobile Developer', 'Solution Architect', 'UX Designer',
-                       'Product Manager', 'Project Manager', 'ERP Consultant',
+              values: [# engineering / data
+                       'AI Engineer', 'MLOps Engineer', 'Backend Developer',
+                       'Frontend Developer', 'Fullstack Developer', 'Software Engineer',
+                       'Data Engineer', 'Data Analyst', 'Data Scientist', 'Data Management',
+                       'QA Engineer', 'DevOps Engineer', 'Cloud Engineer', 'System Engineer',
+                       'Network Engineer', 'Cyber Security', 'Embedded Engineer',
+                       'Mobile Developer', 'Solution Architect', 'Database Administrator',
+                       'Bridge Engineer', 'Technical Lead', 'Technical Support',
+                       # product / delivery
+                       'UX Designer', 'Product Manager', 'Project Manager', 'ERP Consultant',
+                       'Business Analyst', 'Research & Development',
+                       # commercial
                        'Technical Sales', 'Business Development', 'Sales Operations',
                        'Account Manager', 'Channel Sales', 'Presales Engineer',
-                       'Database Administrator', 'Supply Chain Analyst', 'Other']
+                       'Supply Chain Analyst', 'Real Estate',
+                       # non-tech roles the keyword searches pull in
+                       'Marketing', 'Human Resources', 'Accounting & Finance',
+                       'Creative Design', 'Customer Service', 'Supply Chain & Logistics',
+                       'Manufacturing & Engineering', 'Healthcare & Life Sciences',
+                       'Education & Training', 'Legal & Compliance', 'Administration',
+                       'General Management',
+                       'Other']
       - name: salary_vnd_monthly_avg
         description: "Avg of min/max in VND monthly. Sanity bounds: 1M to 5B/month."
         tests:

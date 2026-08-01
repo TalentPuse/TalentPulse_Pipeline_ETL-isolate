@@ -30,31 +30,38 @@ city_extract as (
     from raw
 ),
 
+-- VietnamWorks ships its own job taxonomy in job_function, and every VNW row has
+-- one. This used to be a hardcoded CASE over exactly THREE of ~70 function names,
+-- so the other ~67 were thrown away and those jobs fell through to 'Other'.
+-- The mapping now lives in a seed. `beats_title` marks the original three, which
+-- stay AHEAD of the title keyword lookup (they were chosen because title matching
+-- is unreliable for sales roles); everything else is consulted only after title
+-- matching has failed, since a title is more specific than a function bucket.
 vnw_category as (
     select
-        source,
-        source_job_id,
-        case
-            when source = 'vietnamworks' and job_function is not null then
-                case
-                    when job_function::jsonb->'children'->0->>'name' = 'Sales/Business Development'
-                        then 'Business Development'
-                    when job_function::jsonb->'children'->0->>'name' = 'Sales Engineer/Technical Sales'
-                        then 'Technical Sales'
-                    when job_function::jsonb->'children'->0->>'name' = 'Business/System Analysis'
-                        then 'Business Analyst'
-                end
-            else null
-        end as source_category
-    from raw
+        r.source,
+        r.source_job_id,
+        m.job_category as source_category,
+        m.beats_title
+    from raw r
+    join {{ ref('vnw_function_category_map') }} m
+      on m.vnw_function = r.job_function::jsonb->'children'->0->>'name'
+    where r.source = 'vietnamworks'
+      and r.job_function is not null
 ),
 
 category_resolved as (
     select
         r.source,
         r.source_job_id,
+        -- Deliberately NO 'Other' fallback here. It used to be the last argument
+        -- of this coalesce, which made the column non-nullable — and that in turn
+        -- made `coalesce(cr.job_category, n.norm_job_category)` below dead code:
+        -- the normalization engine's answer could never be reached, so all 159
+        -- rules in normalization.category_rule had no effect on the warehouse.
+        -- 'Other' now lives at the end of that chain instead, where it belongs.
         coalesce(
-            vc.source_category,
+            case when vc.beats_title then vc.source_category end,
             (
                 select tcm.job_category
                 from {{ ref('job_title_category_map') }} tcm
@@ -62,7 +69,7 @@ category_resolved as (
                 order by tcm.priority asc
                 limit 1
             ),
-            'Other'
+            vc.source_category
         ) as job_category
     from raw r
     left join vnw_category vc
@@ -181,7 +188,7 @@ joined as (
         r.working_to_hour,
         r.highest_degree_id,
         dm.degree_label,
-        coalesce(cr.job_category, n.norm_job_category) as job_category,
+        coalesce(cr.job_category, n.norm_job_category, 'Other') as job_category,
         r.language_selected,
         r.language_selected_vi,
         r.range_age,

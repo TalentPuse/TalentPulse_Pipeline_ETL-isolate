@@ -38,3 +38,6 @@ seeds:
     job_title_category_map:
       +column_types:
         priority: integer
+    vnw_function_category_map:
+      +column_types:
+        beats_title: boolean
