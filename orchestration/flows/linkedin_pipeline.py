@@ -57,7 +57,18 @@ def seed_queue(job_ids: list[str]) -> dict:
 # config.LINKEDIN_DETAIL_MAX_SECONDS. Keep this ABOVE that budget but BELOW the
 # workflow's timeout-minutes, or the GHA job dies before the flow can finish
 # parse/load/dbt/alerts (which is exactly what happened on 2026-07-23).
-@task(name="linkedin_detail_crawl", retries=1, timeout_seconds=1800)
+#
+# retries=0 for the same reason itviec_detail_crawl got it in 492bbca: Prefect can
+# mark a long crawl as crashed on a heartbeat lapse and start attempt 2 while
+# attempt 1 is still alive, and both then drain the crawl_log queue — one crawling
+# normally, the zombie claiming rows and abandoning them in_progress. That commit
+# noted "vnw keeps retries=2 (no stranding observed)" and left linkedin at 1;
+# measured on prod 2026-08-01 it IS stranding: 3684 rows stuck in_progress with
+# last_attempt_at running to 10:24, four hours past a crawl whose own budget is
+# 1200s. Backlog had grown to 5168 queued against 2701 ever crawled.
+# Safe to drop: the queue is durable and requeue_stale() sweeps genuinely-killed
+# rows on the next run.
+@task(name="linkedin_detail_crawl", retries=0, timeout_seconds=1800)
 def detail_crawl(max_jobs: int | None = None) -> dict:
     logger = get_run_logger()
     t0 = time.time()

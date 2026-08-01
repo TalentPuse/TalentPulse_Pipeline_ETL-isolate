@@ -13,11 +13,10 @@ import uuid
 from datetime import datetime, timezone
 
 import psycopg2
-from psycopg2.extras import Json, RealDictCursor
+from psycopg2.extras import RealDictCursor
 
 from src.normalizer.matchers.category import match_category
 from src.normalizer.models import DriftEntry, NormResult
-from src.storage.db import pg_connection
 from src.utils.config import config
 
 logger = logging.getLogger(__name__)
@@ -48,7 +47,7 @@ class NormalizerRunner:
         Returns counters: normalized, drift, errors.
         """
         run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:6]
-        counters = {"normalized": 0, "drift": 0, "errors": 0}
+        counters = {"normalized": 0, "drift": 0, "errors": 0, "pruned": 0}
 
         conn = psycopg2.connect(self.dsn)
         try:
@@ -81,6 +80,7 @@ class NormalizerRunner:
             # Write results
             self._write_results(conn, results, run_id)
             self._write_drift(conn, drift_entries, run_id)
+            counters["pruned"] = self._prune_old_runs(conn)
             conn.commit()
 
             counters["normalized"] = len(results)
@@ -158,6 +158,40 @@ class NormalizerRunner:
         )
         with conn.cursor() as cur:
             execute_values(cur, sql, rows, page_size=500)
+
+    def _prune_old_runs(self, conn, keep_runs: int = 3) -> int:
+        """Drop normalization rows from all but the newest `keep_runs` runs.
+
+        This table is append-only and every run re-normalizes EVERY raw row, so
+        it grows by one row per job per run forever. Measured on prod
+        2026-08-01: 100,186 rows describing 4,383 actual jobs across 48 runs —
+        24 MB, already the second-largest table in a 89 MB warehouse, and
+        growing by ~2,000 rows on every pipeline run.
+
+        The cost is not just disk. silver_job_detail resolves a category with
+        `distinct on (source, source_job_id) ... order by run_at desc` over this
+        whole table, so every stale generation makes the silver view slower.
+
+        Safe because a run always writes a row for every current job, so the
+        newest run alone is sufficient for the DISTINCT ON; the extra two are
+        kept only so a bad rule change can be eyeballed against what it replaced.
+        Returns rows deleted.
+        """
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                DELETE FROM normalization.job_normalization
+                 WHERE run_id NOT IN (
+                     SELECT run_id
+                       FROM normalization.job_normalization
+                      GROUP BY run_id
+                      ORDER BY max(run_at) DESC
+                      LIMIT %s
+                 )
+                """,
+                (keep_runs,),
+            )
+            return cur.rowcount
 
     def _write_drift(self, conn, entries: list[DriftEntry], run_id: str) -> None:
         """Batch-upsert drift log entries in ONE INSERT.

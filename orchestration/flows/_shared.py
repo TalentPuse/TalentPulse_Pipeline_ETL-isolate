@@ -6,7 +6,6 @@ import subprocess
 
 import requests
 from prefect import get_run_logger
-from prefect.artifacts import create_markdown_artifact
 
 
 def fmt_duration(seconds: float) -> str:
@@ -63,7 +62,10 @@ def run_normalizer() -> str:
     from src.normalizer.runner import NormalizerRunner
     runner = NormalizerRunner()
     result = runner.run()
-    return f"normalized {result['normalized']} jobs, {result['drift']} drift items, {result['errors']} errors"
+    return (
+        f"normalized {result['normalized']} jobs, {result['drift']} drift items, "
+        f"{result['errors']} errors, pruned {result.get('pruned', 0)} stale rows"
+    )
 
 
 def run_dbt(dbt_dir: str = "/app/dbt_transform") -> str:

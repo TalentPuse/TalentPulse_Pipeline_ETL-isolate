@@ -4,6 +4,12 @@ config-version: 2
 
 profile: talentpulse
 
+vars:
+  # How long a posting stays "active" when its source publishes no expiry date.
+  # Only LinkedIn needs this today (it never sends expired_at); VietnamWorks,
+  # ITviec and TopCV all supply one and are unaffected. See bronze/stg_job_detail.
+  job_stale_days: 45
+
 model-paths: ["models"]
 analysis-paths: ["analyses"]
 test-paths: ["tests"]
