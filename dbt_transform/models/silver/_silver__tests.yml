@@ -42,6 +42,7 @@ models:
                        'Network Engineer', 'Cyber Security', 'Embedded Engineer',
                        'Mobile Developer', 'Solution Architect', 'Database Administrator',
                        'Bridge Engineer', 'Technical Lead', 'Technical Support',
+                       'Game Developer',
                        # product / delivery
                        'UX Designer', 'Product Manager', 'Project Manager', 'ERP Consultant',
                        'Business Analyst', 'Research & Development',
