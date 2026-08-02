@@ -105,14 +105,29 @@ because the salary marts are built only from rows that have it.
 
 ## 5. Is the web copy current?
 
-```sql
--- WEB_DSN
-SELECT count(*), max(snapshot_date) FROM dbt_dev_gold.fct_jobs_daily;
--- WAREHOUSE_DSN, same query — the two should match after the 16:00 sync
+```bash
+psql "$WEB_DSN"       -tAc "SELECT count(*), max(snapshot_date) FROM dbt_dev_gold.fct_jobs_daily"
+psql "$WAREHOUSE_DSN" -tAc "SELECT count(*), max(snapshot_date) FROM dbt_dev_gold.fct_jobs_daily"
 ```
 
-Report only if they disagree. The website reads the web copy, so a stale copy
+Report only if the two disagree. The website reads the web copy, so a stale copy
 means users see yesterday's board no matter how healthy the warehouse is.
+
+**Never report the web box as unreachable on a single failed attempt.** The link
+runs over the tailnet and frequently relays through DERP rather than a direct
+path — measured at 372 ms round-trip, which is slow enough that a short client
+timeout gives up on a database that is perfectly healthy. This exact false alarm
+has already been raised once.
+
+Before writing "unreachable", do all three:
+
+1. retry with an explicit generous timeout —
+   `psql "$WEB_DSN" -v ON_ERROR_STOP=1 -tAc "select 1"` with at least 30 s
+2. check the port separately: `timeout 10 bash -c 'cat </dev/null >/dev/tcp/100.77.112.90/5432'`
+3. quote the **actual error text** in the report
+
+If the port is open but the query is slow, that is a slow link, not an outage —
+say so. Never turn a timeout into an outage claim without evidence.
 
 ## Report format
 
