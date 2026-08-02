@@ -1,0 +1,72 @@
+name: Pipeline - Threads
+
+# Cron is UTC. "0 10 * * *" UTC == 17:00 Asia/Ho_Chi_Minh (UTC+7).
+#
+# Every earlier slot is taken: VNW 09:00, CareerViet 10:00, ITviec 11:00,
+# TopCV 12:00, LinkedIn 13:00, alerts 14:00, skill-extraction 15:00,
+# sync-to-web 16:00, backup 20:00 (all VN time). 17:00 is the first free one.
+#
+# This job is light — API calls, no crawling — so it does not contend with the
+# warehouse the way the crawl pipelines do.
+on:
+  schedule:
+    - cron: "0 10 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: pipeline-threads
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  run:
+    name: Run threads-pipeline (run-once)
+    # Uses the plain `worker` image: Threads is a JSON API over `requests`, so
+    # there is no browser and no per-source Dockerfile.
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      PREFECT_API_URL: http://${{ vars.WAREHOUSE_TAILNET_IP }}:4200/api
+
+      DB_HOST: ${{ vars.WAREHOUSE_TAILNET_IP }}
+      DB_PORT: "5432"
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_NAME: ${{ vars.DB_NAME || 'warehouse' }}
+
+      S3_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT_URL }}
+      S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+      S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
+      S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME || 'talentpulse-raw' }}
+
+      CRAWLER_CONTACT_EMAIL: ${{ vars.CRAWLER_CONTACT_EMAIL }}
+
+      # User access token with scopes `threads_basic` + `threads_keyword_search`.
+      # The crawler refuses to start without it (no default is correct for a
+      # credential). NOTE: this var must ALSO be added to the `docker run -e`
+      # list in .github/actions/run-flow/action.yml, or the container never
+      # sees it and the flow fails on the first task.
+      THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+
+      DASHBOARD_API_URL: http://${{ vars.WEB_TAILNET_IP }}:8001
+      ALERT_DISPATCH_SECRET: ${{ secrets.ALERT_DISPATCH_SECRET }}
+      TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run threads-pipeline
+        uses: ./.github/actions/run-flow
+        with:
+          image-suffix: worker
+          module: orchestration.flows.threads_pipeline
+          image-tag: develop
+          ts-oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          ts-oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+# GitHub registers schedule/workflow_dispatch workflows only when the file is
+# added or modified in a push to the default branch. This line forces that.

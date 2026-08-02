@@ -93,6 +93,7 @@ runs:
           -e ALERT_DISPATCH_SECRET \
           -e TELEGRAM_WEBHOOK_SECRET \
           -e TELEGRAM_BOT_TOKEN \
+          -e THREADS_ACCESS_TOKEN \
           -e OPENAI_API_KEY \
           -e CRAWLER_CONTACT_EMAIL \
           -e BACKUP_BUCKET \

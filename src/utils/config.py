@@ -51,6 +51,10 @@ class Config:
     TOPCV_KEYWORDS: list[str] = ITVIEC_KEYWORDS
     # CareerViet searches by URL slug too: /viec-lam/{slug}-k-vi.html
     CAREERVIET_KEYWORDS: list[str] = ITVIEC_KEYWORDS
+    # Threads keyword search takes free text, not slugs. Keep this list SHORT:
+    # 2,200 queries per rolling 24h per user is the entire budget, and paging
+    # through one keyword spends several.
+    THREADS_KEYWORDS: list[str] = CRAWL_KEYWORDS
     # TopCV hard-blocks datacenter IPs (CI runners / VPS) with an always-on
     # Cloudflare challenge, so crawling from CI needs a residential proxy.
     # Unset = direct connection (works from residential IPs only).
