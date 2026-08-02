@@ -120,7 +120,19 @@ def dispatch_alerts() -> dict:
 @flow(name="vnw-pipeline")
 def vnw_pipeline(
     keywords: list[str] | None = None,
-    listing_pages: int = 1,
+    # Was 1, which capped VietnamWorks at 50 jobs per keyword — 1,100 across the
+    # 22 keywords, and the warehouse held 939. Measured 2026-08-02, those same
+    # keywords actually offer 2,714 jobs; "Business Development" alone has 1,187
+    # across 24 pages, of which we were taking the first 50.
+    #
+    # Raising the cap is nearly free: crawl_all_listings() stops as soon as it
+    # reaches the API's own nbPages, so small keywords still cost one request.
+    # Only the big ones page deeper. Total ≈ 60-70 requests at 2s apart.
+    #
+    # NB the `listing_pages: 3` in the .serve() block at the bottom of this file
+    # never applied — that branch only runs with PREFECT_DEPLOY=1, which the GHA
+    # workflow deliberately never sets, so this default is what production used.
+    listing_pages: int = 25,
     detail_max_jobs: int | None = None,
     force_reparse: bool = False,
 ) -> dict:

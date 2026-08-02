@@ -109,7 +109,15 @@ class Config:
     LOCATIONS = ["Ho Chi Minh"]
     TARGET_JOB_FUNCTION_IDS = list(ALLOWED_FUNCTION_IDS)
     # Safety cap on listing pagination (hitsPerPage=50)
-    LISTING_MAX_PAGES: int = int(os.getenv("LISTING_MAX_PAGES", "5"))
+    # Safety cap on listing pagination, NOT a target — every listing crawler
+    # stops on its own first: VietnamWorks at the API's nbPages, CareerViet when
+    # a page contributes no new links. So a high cap costs nothing on small
+    # keywords and only lets the big ones run to completion.
+    #
+    # Raised 5 -> 25 on 2026-08-02. At 5 (=275 jobs on CareerViet, 250 on VNW)
+    # it was silently truncating the largest keywords: VNW "Business Development"
+    # has 1,187 jobs over 24 pages, CareerViet "product-manager" 448.
+    LISTING_MAX_PAGES: int = int(os.getenv("LISTING_MAX_PAGES", "25"))
 
     # Detail crawler
     CRAWLER_CONTACT_EMAIL: str = os.getenv("CRAWLER_CONTACT_EMAIL", "contact@example.com")
