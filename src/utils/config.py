@@ -2,7 +2,6 @@ import os
 import re
 from urllib.parse import quote_plus
 from dotenv import load_dotenv
-from typing import Optional
 
 # Load environment variables from .env file
 load_dotenv()
@@ -50,6 +49,8 @@ class Config:
         re.sub(r"[^a-z0-9]+", "-", k.lower()).strip("-") for k in CRAWL_KEYWORDS
     ]
     TOPCV_KEYWORDS: list[str] = ITVIEC_KEYWORDS
+    # CareerViet searches by URL slug too: /viec-lam/{slug}-k-vi.html
+    CAREERVIET_KEYWORDS: list[str] = ITVIEC_KEYWORDS
     # TopCV hard-blocks datacenter IPs (CI runners / VPS) with an always-on
     # Cloudflare challenge, so crawling from CI needs a residential proxy.
     # Unset = direct connection (works from residential IPs only).

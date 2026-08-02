@@ -1,0 +1,60 @@
+name: Pipeline - CareerViet
+
+# Cron is UTC. "0 3 * * *" UTC == 10:00 Asia/Ho_Chi_Minh (UTC+7), slotted
+# between VietnamWorks (09:00) and ITviec (11:00) so the sources do not compete
+# for the warehouse's small connection pool.
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: pipeline-careerviet
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  run:
+    name: Run careerviet-pipeline (run-once)
+    # Uses the plain `worker` image: CareerViet needs no browser, so there is no
+    # Playwright/Chromium image for this source.
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      PREFECT_API_URL: http://${{ vars.WAREHOUSE_TAILNET_IP }}:4200/api
+
+      DB_HOST: ${{ vars.WAREHOUSE_TAILNET_IP }}
+      DB_PORT: "5432"
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_NAME: ${{ vars.DB_NAME || 'warehouse' }}
+
+      S3_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT_URL }}
+      S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+      S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
+      S3_BUCKET_NAME: ${{ vars.S3_BUCKET_NAME || 'talentpulse-raw' }}
+
+      CRAWLER_CONTACT_EMAIL: ${{ vars.CRAWLER_CONTACT_EMAIL }}
+
+      DASHBOARD_API_URL: http://${{ vars.WEB_TAILNET_IP }}:8001
+      ALERT_DISPATCH_SECRET: ${{ secrets.ALERT_DISPATCH_SECRET }}
+      TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run careerviet-pipeline
+        uses: ./.github/actions/run-flow
+        with:
+          image-suffix: worker
+          module: orchestration.flows.careerviet_pipeline
+          image-tag: develop
+          ts-oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          ts-oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+# GitHub registers schedule/workflow_dispatch workflows only when the file is
+# added or modified in a push to the default branch. This line forces that.

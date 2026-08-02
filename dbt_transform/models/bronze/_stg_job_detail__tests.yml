@@ -30,7 +30,7 @@ models:
           values are source-prefixed; only VietnamWorks still uses a bare 'v2'.
         tests:
           - accepted_values:
-              values: ['v2', 'linkedin-v1', 'itviec-v1', 'topcv-v1']
+              values: ['v2', 'linkedin-v1', 'itviec-v1', 'topcv-v1', 'careerviet-v1']
       - name: salary_currency
         description: "Currency code when salary visible. VND majority; USD for MNC; rare JPY for JP companies."
         tests:
