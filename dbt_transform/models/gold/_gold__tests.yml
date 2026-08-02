@@ -16,15 +16,7 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['AI Engineer', 'Backend Developer', 'Frontend Developer',
-                       'Fullstack Developer', 'Data Engineer', 'Data Analyst',
-                       'Data Scientist', 'Data Management', 'Business Analyst',
-                       'QA Engineer', 'DevOps Engineer', 'Cloud Engineer',
-                       'Mobile Developer', 'Solution Architect', 'UX Designer',
-                       'Product Manager', 'Project Manager', 'ERP Consultant',
-                       'Technical Sales', 'Business Development', 'Sales Operations',
-                       'Account Manager', 'Channel Sales', 'Presales Engineer',
-                       'Database Administrator', 'Supply Chain Analyst', 'Other']
+              values: "{{ var('job_categories') }}"
 
   - name: mart_skill_demand
     description: "Skill demand snapshot. Pct of jobs mentioning each skill + avg VND salary."

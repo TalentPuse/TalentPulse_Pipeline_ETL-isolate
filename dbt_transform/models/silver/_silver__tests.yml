@@ -34,29 +34,9 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: [# engineering / data
-                       'AI Engineer', 'MLOps Engineer', 'Backend Developer',
-                       'Frontend Developer', 'Fullstack Developer', 'Software Engineer',
-                       'Data Engineer', 'Data Analyst', 'Data Scientist', 'Data Management',
-                       'QA Engineer', 'DevOps Engineer', 'Cloud Engineer', 'System Engineer',
-                       'Network Engineer', 'Cyber Security', 'Embedded Engineer',
-                       'Mobile Developer', 'Solution Architect', 'Database Administrator',
-                       'Bridge Engineer', 'Technical Lead', 'Technical Support',
-                       'Game Developer',
-                       # product / delivery
-                       'UX Designer', 'Product Manager', 'Project Manager', 'ERP Consultant',
-                       'Business Analyst', 'Research & Development',
-                       # commercial
-                       'Technical Sales', 'Business Development', 'Sales Operations',
-                       'Account Manager', 'Channel Sales', 'Presales Engineer',
-                       'Supply Chain Analyst', 'Real Estate',
-                       # non-tech roles the keyword searches pull in
-                       'Marketing', 'Human Resources', 'Accounting & Finance',
-                       'Creative Design', 'Customer Service', 'Supply Chain & Logistics',
-                       'Manufacturing & Engineering', 'Healthcare & Life Sciences',
-                       'Education & Training', 'Legal & Compliance', 'Administration',
-                       'General Management',
-                       'Other']
+              # Defined once in dbt_project.yml (vars.job_categories) and shared
+              # with _gold__tests.yml — the two inline copies had already drifted.
+              values: "{{ var('job_categories') }}"
       - name: salary_vnd_monthly_avg
         description: "Avg of min/max in VND monthly. Sanity bounds: 1M to 5B/month."
         tests:
