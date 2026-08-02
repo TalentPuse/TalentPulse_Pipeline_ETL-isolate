@@ -2,20 +2,24 @@ version: 2
 
 models:
   - name: silver_job_detail
-    description: "Normalized job_detail with VND-monthly salary + canonical city/degree/size labels."
+    description: "Normalized job_detail with VND-monthly salary + canonical city/degree/size labels. Grain is (source, source_job_id)."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [source, source_job_id]
     columns:
       - name: source_job_id
-        tests: [not_null, unique]
+        tests: [not_null]
       - name: title
         tests: [not_null]
       - name: company_name
         tests: [not_null]
       - name: city_canonical
-        description: "Canonical city. NULL means city_raw_en didn't match city_map (drift detector)."
-        tests:
-          - not_null:
-              config:
-                where: "city_raw_en is not null"
+        description: >
+          Canonical city, resolved by exact alias then by substring against
+          city_map. NULL is a legitimate outcome, not a defect: 217 LinkedIn rows
+          carry city_raw_en = 'Vietnam', which names no city to resolve. Hence no
+          not_null test — use the drift query in docs/data_audit.md to watch the
+          unmatched set instead.
       - name: job_level
         description: "Canonical job level, derived from title when raw is missing/unreliable. Never NULL — defaults to Mid-level."
         tests:

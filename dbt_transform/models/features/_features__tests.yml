@@ -2,11 +2,16 @@ version: 2
 
 models:
   - name: job_features
-    description: "Entity-level features per job_id for ML consumption. Regenerated daily."
+    description: "Entity-level features per job for ML consumption. Grain is (source, source_job_id). Regenerated daily."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [source, source_job_id]
     columns:
+      - name: source
+        tests: [not_null]
       - name: source_job_id
-        description: "Entity key. One row per active job."
-        tests: [not_null, unique]
+        description: "Entity key, together with source. One row per job."
+        tests: [not_null]
       - name: snapshot_date
         tests: [not_null]
       - name: n_skills

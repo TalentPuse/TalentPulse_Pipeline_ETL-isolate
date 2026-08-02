@@ -130,17 +130,45 @@ def sync_object(schema: str, name: str, is_view: bool) -> dict:
             bc.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
             bc.execute(f"DROP TABLE IF EXISTS {schema}.{staging}")
 
-            # Uu tien clone cau truc tu bang dich neu no da co, de giu nguyen kieu
-            # du lieu qua cac lan sync. Lan dau chua co gi thi danh suy ra tu ten cot
-            # va dung `text` — dbt se tao lai dung kieu o lan sau khi da co bang mau.
+            # Clone cau truc tu bang dich khi no da co — giu nguyen index/kieu qua
+            # cac lan sync. NHUNG chi khi tap cot hai ben con KHOP NHAU.
+            #
+            # `LIKE <bang dich>` sao chep schema CU. Hom nao mot model dbt them cot
+            # (vi du job_features them `source` vao khoa thuc the) thi staging se
+            # thieu dung cot do va lenh INSERT ngay duoi nem
+            # `column "source" of relation "..." does not exist` — sync gay, va gay
+            # MAI cho toi khi co nguoi drop bang dich bang tay.
+            #
+            # So tap cot truoc: lech thi dung sang tao moi tu KIEU THAT o nguon,
+            # tuc dung nhanh ma lan dau tien van di. Doi schema o dbt tu do khong
+            # con can thao tac tay o web box nua.
             bc.execute("SELECT to_regclass(%s) IS NOT NULL", (f"{schema}.{name}",))
             has_target = bc.fetchone()[0]
+            target_cols: list[str] = []
             if has_target:
+                bc.execute(
+                    """
+                    SELECT attname FROM pg_attribute
+                     WHERE attrelid = %s::regclass AND attnum > 0 AND NOT attisdropped
+                     ORDER BY attnum
+                    """,
+                    (f"{schema}.{name}",),
+                )
+                target_cols = [r[0] for r in bc.fetchall()]
+
+            # So bang TAP HOP: thu tu cot khac nhau khong sao (INSERT liet ke ten
+            # cot tuong minh), chi them/bot cot moi la van de.
+            if has_target and set(target_cols) == set(cols):
                 bc.execute(
                     f"CREATE TABLE {schema}.{staging} "
                     f"(LIKE {schema}.{name} INCLUDING DEFAULTS)"
                 )
             else:
+                if has_target:
+                    logger.warning(
+                        f"{src_fq}: tap cot da doi ({len(target_cols)} -> {len(cols)}), "
+                        "tao lai bang dich theo kieu that o nguon"
+                    )
                 col_defs = ", ".join(f'"{c}" {coltypes.get(c, "text")}' for c in cols)
                 bc.execute(f"CREATE TABLE {schema}.{staging} ({col_defs})")
 

@@ -16,7 +16,10 @@ companies as (
 ),
 
 skill_agg as (
+    -- Grain must match the entity key below: source_job_id alone would merge the
+    -- skills of two unrelated jobs that happen to share an id across boards.
     select
+        source,
         source_job_id,
         bool_or(skill_name_norm = 'python')                    as has_python,
         bool_or(skill_name_norm = 'sql')                       as has_sql,
@@ -26,11 +29,15 @@ skill_agg as (
         bool_or(skill_name_norm ~* 'power bi|tableau|looker|qlik') as has_bi_tool,
         count(*)                                               as n_skills
     from {{ ref('silver_skill_long') }}
-    group by 1
+    group by 1, 2
 )
 
 select
-    -- Entity key
+    -- Entity key. `source` belongs here: source_job_id is only unique WITHIN a
+    -- source (raw.job_detail is keyed on the pair), so a bare source_job_id lets
+    -- two different jobs from two boards collide into one feature row. The
+    -- uniqueness test on this table was failing for exactly that reason.
+    j.source,
     j.source_job_id,
     current_date                                      as snapshot_date,
 
@@ -72,4 +79,4 @@ select
     j.parsed_at
 from jobs j
 left join companies c on c.company_id = j.company_id
-left join skill_agg s on s.source_job_id = j.source_job_id
+left join skill_agg s on s.source = j.source and s.source_job_id = j.source_job_id

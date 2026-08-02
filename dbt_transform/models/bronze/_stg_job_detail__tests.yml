@@ -2,13 +2,18 @@ version: 2
 
 models:
   - name: stg_job_detail
-    description: "Active VietnamWorks postings, 1:1 with raw.job_detail."
+    description: "All postings, 1:1 with raw.job_detail. Grain is (source, source_job_id)."
+    tests:
+      # NOT `unique` on source_job_id alone: the upstream key is the PAIR, and two
+      # boards can legitimately issue the same id for different jobs. The old test
+      # happened to pass on prod only because no collision existed there yet.
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [source, source_job_id]
     columns:
       - name: source_job_id
-        description: "Upstream id — unique per active posting"
+        description: "Upstream id — unique only WITHIN a source"
         tests:
           - not_null
-          - unique
       - name: source
         tests: [not_null]
       - name: title
@@ -20,9 +25,12 @@ models:
       - name: parsed_at
         tests: [not_null]
       - name: parser_version
+        description: >
+          Parser that produced the row. Each source versions its own parser, so the
+          values are source-prefixed; only VietnamWorks still uses a bare 'v2'.
         tests:
           - accepted_values:
-              values: ['v1', 'v2']
+              values: ['v2', 'linkedin-v1', 'itviec-v1', 'topcv-v1']
       - name: salary_currency
         description: "Currency code when salary visible. VND majority; USD for MNC; rare JPY for JP companies."
         tests:

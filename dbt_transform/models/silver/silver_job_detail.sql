@@ -30,6 +30,37 @@ city_extract as (
     from raw
 ),
 
+-- City resolution: exact alias first, then substring.
+--
+-- The exact join alone left 688 rows (24.7% of LinkedIn) with a NULL city.
+-- LinkedIn does not send a city, it sends a whole place string —
+-- "Củ Chi, Ho Chi Minh City, Vietnam", "Trần Văn Thời, Ca Mau, Vietnam" — so an
+-- equality join can never match it, no matter how many aliases the seed lists.
+-- Matching on containment instead resolves those, with the LONGEST alias winning
+-- so that a more specific entry is never shadowed by a shorter one.
+--
+-- Rows that stay NULL after this are genuinely unresolvable: 217 of them have
+-- city_raw_en = 'Vietnam', which names no city at all. That is why city_canonical
+-- carries no not_null test — NULL here is information, not a defect.
+city_resolved as (
+    select
+        ce.source,
+        ce.source_job_id,
+        coalesce(exact_m.city_canonical, fuzzy.city_canonical) as city_canonical,
+        coalesce(exact_m.region, fuzzy.region)                 as region
+    from city_extract ce
+    left join {{ ref('city_map') }} exact_m
+        on exact_m.city_raw_en = ce.city_raw_en
+    left join lateral (
+        select m.city_canonical, m.region
+        from {{ ref('city_map') }} m
+        where ce.city_raw_en is not null
+          and lower(ce.city_raw_en) like '%' || lower(m.city_raw_en) || '%'
+        order by length(m.city_raw_en) desc
+        limit 1
+    ) fuzzy on true
+),
+
 -- VietnamWorks ships its own job taxonomy in job_function, and every VNW row has
 -- one. This used to be a hardcoded CASE over exactly THREE of ~70 function names,
 -- so the other ~67 were thrown away and those jobs fell through to 'Other'.
@@ -105,45 +136,50 @@ joined as (
         csm.size_bucket                       as company_size_bucket,
         r.is_salary_visible,
         r.salary_currency,
-        -- Sanity check: if raw salary > 10M VND and period = Hourly, it's actually Monthly
-        case when r.salary_period_id = 2 and r.salary_min > 10000000
+        -- Hourly-but-actually-monthly sanity check, compared in VND.
+        --
+        -- This used to test `r.salary_min > 10000000` against the RAW figure,
+        -- which silently assumed the currency was VND. A VietnamWorks posting
+        -- tagged Hourly with salary_min = 2000 USD slipped straight past it (2000
+        -- is not > 10M) and got multiplied by 172, landing in the warehouse at
+        -- 15,050,000,000 VND/month. Converting first makes the test currency-blind:
+        -- 2000 USD/h is ~50M VND/h, obviously a monthly figure mislabelled.
+        case when r.salary_period_id = 2
+                  and r.salary_min * coalesce(fx.vnd_rate, 1) > 10000000
             then 1 else r.salary_period_id
         end as salary_period_id,
         spm.period_label                      as salary_period_label,
         -- Normalize the salary band to VND-monthly. NULL when the salary is not
         -- visible, the currency has no FX rate, or the band is missing.
-        -- multiplier: Monthly=1, Hourly=172, Yearly=1/12 (from salary_period_map);
-        -- the same hourly->monthly sanity as the period correction above applies.
+        -- multiplier: Monthly=1, Hourly=172, Yearly=1/12 (from salary_period_map).
+        --
+        -- Values outside 1M..5B VND/month are dropped to NULL rather than
+        -- published. Sources do emit nonsense — six VietnamWorks rows carried
+        -- 9, 650, 1000 and 10000 VND/month — and a bogus number is worse than a
+        -- missing one here, because these columns feed the salary marts where a
+        -- 12 VND row drags the percentiles down for everybody.
+        {%- set band = "between 1000000 and 5000000000" %}
         case
             when r.is_salary_visible
              and r.salary_min is not null
              and fx.vnd_rate is not null
-            then round(
-                r.salary_min * fx.vnd_rate *
-                case when r.salary_period_id = 2 and r.salary_min > 10000000
-                     then 1.0 else coalesce(spm.months_multiplier, 1.0) end
-            )
+             and round(r.salary_min * fx.vnd_rate * {{ salary_multiplier() }}) {{ band }}
+            then round(r.salary_min * fx.vnd_rate * {{ salary_multiplier() }})
         end                                    as salary_vnd_monthly_min,
         case
             when r.is_salary_visible
              and r.salary_max is not null
              and fx.vnd_rate is not null
-            then round(
-                r.salary_max * fx.vnd_rate *
-                case when r.salary_period_id = 2 and r.salary_min > 10000000
-                     then 1.0 else coalesce(spm.months_multiplier, 1.0) end
-            )
+             and round(r.salary_max * fx.vnd_rate * {{ salary_multiplier() }}) {{ band }}
+            then round(r.salary_max * fx.vnd_rate * {{ salary_multiplier() }})
         end                                    as salary_vnd_monthly_max,
         case
             when r.is_salary_visible
              and r.salary_min is not null
              and r.salary_max is not null
              and fx.vnd_rate is not null
-            then round(
-                ((r.salary_min + r.salary_max) / 2.0) * fx.vnd_rate *
-                case when r.salary_period_id = 2 and r.salary_min > 10000000
-                     then 1.0 else coalesce(spm.months_multiplier, 1.0) end
-            )
+             and round(((r.salary_min + r.salary_max) / 2.0) * fx.vnd_rate * {{ salary_multiplier() }}) {{ band }}
+            then round(((r.salary_min + r.salary_max) / 2.0) * fx.vnd_rate * {{ salary_multiplier() }})
         end                                    as salary_vnd_monthly_avg,
         coalesce(
             case r.job_level
@@ -202,8 +238,8 @@ joined as (
         ce.city_raw_en,
         ce.city_raw_vi,
         ce.primary_address_extracted,
-        cm.city_canonical,
-        cm.region,
+        cr_city.city_canonical,
+        cr_city.region,
         r.parser_version,
         r.parsed_at,
         r.loaded_at
@@ -214,8 +250,8 @@ joined as (
         on fx.currency = r.salary_currency
     left join {{ ref('salary_period_map') }} spm
         on spm.salary_period_id = r.salary_period_id
-    left join {{ ref('city_map') }} cm
-        on cm.city_raw_en = ce.city_raw_en
+    left join city_resolved cr_city
+        on cr_city.source = r.source and cr_city.source_job_id = r.source_job_id
     left join {{ ref('degree_map') }} dm
         on dm.highest_degree_id = r.highest_degree_id
     left join {{ ref('company_size_map') }} csm
