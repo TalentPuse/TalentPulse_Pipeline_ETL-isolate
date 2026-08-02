@@ -55,9 +55,17 @@ class Config:
     # 2,200 queries per rolling 24h per user is the entire budget, and paging
     # through one keyword spends several.
     THREADS_KEYWORDS: list[str] = CRAWL_KEYWORDS
-    # TopCV hard-blocks datacenter IPs (CI runners / VPS) with an always-on
-    # Cloudflare challenge, so crawling from CI needs a residential proxy.
-    # Unset = direct connection (works from residential IPs only).
+    # TopCV crawling is DISABLED — the schedule was commented out in
+    # .github/workflows/pipeline-topcv.yml on 2026-08-02 because TopCV's terms of
+    # service prohibit automated collection without their consent.
+    #
+    # The note that used to sit here — "hard-blocks datacenter IPs, needs a
+    # residential proxy" — was measured to be wrong on 2026-08-02. A residential
+    # IP is blocked identically, and a fresh browser context on that SAME IP
+    # passes straight away. The real limit is ~2 page loads per browser SESSION,
+    # tracked by cookie, and it never expires (a 60-second wait did not clear
+    # it). That is policy enforcement, not IP reputation, so a proxy would have
+    # bought nothing. Kept only so a manual run can use one if consent arrives.
     TOPCV_PROXY_URL: str | None = os.getenv("TOPCV_PROXY_URL")
 
     # VietnamWorks jobFunctionV3Id filter — intentionally EMPTY so VNW searches

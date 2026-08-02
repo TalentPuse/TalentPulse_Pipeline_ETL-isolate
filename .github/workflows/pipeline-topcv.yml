@@ -1,10 +1,32 @@
 name: Pipeline - TopCV
 
-# Cron is UTC. "0 5 * * *" UTC == 12:00 Asia/Ho_Chi_Minh (UTC+7).
-# Staggered one hour after ITviec (04:00 UTC) to avoid overlapping browser crawls.
+# SCHEDULE DISABLED 2026-08-02 — TopCV's terms of service prohibit this.
+#
+# Their Terms (topcv.vn/terms-of-service, tuyendung.topcv.vn/term-of-services)
+# forbid using third-party tools "để truy cập vào dịch vụ hoặc hệ thống của
+# TopCV nhằm thu thập dữ liệu" without TopCV's consent, and name "Lưu lượng truy
+# cập rất cao và thường xuyên (giống hệ thống máy tự động quét dữ liệu - crawl
+# bot)" as grounds for suspension.
+#
+# That is also the mechanism we measured: TopCV serves the real page for the
+# first ~2 requests of a browser session, then returns a constant 4,812-byte
+# stub for every subsequent one. Waiting does not clear it — the session is
+# marked for good; only a fresh browser context resets the count. So the
+# 19 success / 185 failed in raw.crawl_log is one session getting two pages.
+#
+# Rotating contexts would defeat it, but that is circumventing a control they
+# state explicitly, not polite crawling — so we do not. The earlier note in
+# src/utils/config.py blaming datacenter IPs was wrong: a residential IP is
+# treated identically, and a fresh context on the SAME IP passes.
+#
+# The 155 rows already in the warehouse are kept; we simply stop collecting.
+# To resume legitimately, ask TopCV for consent — their terms say "nếu không
+# được TopCV đồng ý", so permission is a route that exists.
+#
+# workflow_dispatch is left enabled for a manual run if that consent arrives.
 on:
-  schedule:
-    - cron: "0 5 * * *"
+  # schedule:
+  #   - cron: "0 5 * * *"   # was 12:00 VN
   workflow_dispatch: {}
 
 concurrency:
